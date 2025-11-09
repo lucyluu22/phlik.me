@@ -1,0 +1,66 @@
+/**
+ * Global theme variables and styles.
+ */
+:root {
+	--opacity: 0.87;
+	--color-primary: #030618;
+	--color-on-primary: rgba(255, 255, 255, var(--opacity));
+	--color-error: #ff3333;
+	--color-on-error: rgba(255, 255, 255, var(--opacity));
+	--color-info: #0077cc;
+	--color-on-info: rgba(255, 255, 255, var(--opacity));
+	--color-warning: #cc8f00;
+	--color-on-warning: rgba(255, 255, 255, var(--opacity));
+
+	--font-family: system-ui, sans-serif;
+	--font-paragraph: 1rem var(--font-family);
+	--font-heading: bold 2.5rem var(--font-family);
+	--font-subheading: bold 1.5rem var(--font-family);
+	--font-input: 1rem var(--font-family);
+	--font-button: bold 1rem var(--font-family);
+	--font-alert: bold 1rem var(--font-family);
+
+	--border-radius: 4px;
+
+	--spacing-unit: 0.5rem;
+}
+
+@media (prefers-color-scheme: light) {
+	:root {
+		--color-primary: #ffffff;
+		--color-on-primary: rgba(0, 0, 0, var(--opacity));
+	}
+}
+
+* {
+	box-sizing: border-box;
+}
+
+body {
+	margin: 0;
+	padding: var(--spacing-unit);
+	font-family: var(--font-family);
+	background-color: var(--color-primary);
+	color: var(--color-on-primary);
+}
+
+p {
+	font: var(--font-paragraph);
+	padding: 0;
+	margin: var(--spacing-unit) 0;
+}
+
+.context--info {
+	background-color: var(--color-info);
+	color: var(--color-on-info);
+}
+
+.context--error {
+	background-color: var(--color-error);
+	color: var(--color-on-error);
+}
+
+.context--warning {
+	background-color: var(--color-warning);
+	color: var(--color-on-warning);
+}
