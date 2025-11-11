@@ -7,14 +7,17 @@
 <button {...buttonProps}>{@render children?.()}</button>
 
 <style>
-	button {
+	button,
+	:global(.button) {
 		font: var(--font-button);
+		text-decoration: none;
+		text-align: center;
 		padding: var(--spacing-unit);
 		border: none;
-		border: 2px solid transparent;
+		border: 2px solid var(--color-on-primary);
 		border-radius: var(--border-radius);
-		background-color: var(--color-on-primary);
-		color: var(--color-primary);
+		background-color: var(--color-primary);
+		color: var(--color-on-primary);
 		cursor: pointer;
 		transition:
 			background-color 0.2s ease-in-out,
@@ -23,14 +26,17 @@
 	}
 
 	button:hover,
-	button:focus {
-		border-color: var(--color-on-primary);
-		background-color: var(--color-primary);
-		color: var(--color-on-primary);
+	:global(.button:hover),
+	button:focus,
+	:global(.button:focus) {
+		border-color: transparent;
+		background-color: var(--color-on-primary);
+		color: var(--color-primary);
 		outline: none;
 	}
 
-	button:disabled {
+	button:disabled,
+	:global(.button:disabled) {
 		opacity: 0.6;
 		pointer-events: none;
 	}

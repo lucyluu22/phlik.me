@@ -52,7 +52,7 @@
 		position: fixed;
 		top: 0;
 		left: 0;
-		width: 100%;
+		width: 100dvw;
 		text-align: center;
 		opacity: var(--opacity);
 		padding: var(--spacing-unit);

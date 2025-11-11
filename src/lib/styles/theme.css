@@ -32,6 +32,12 @@
 	}
 }
 
+@media (pointer: coarse) {
+	:root {
+		--spacing-unit: 1rem;
+	}
+}
+
 * {
 	box-sizing: border-box;
 }
@@ -42,6 +48,22 @@ body {
 	font-family: var(--font-family);
 	background-color: var(--color-primary);
 	color: var(--color-on-primary);
+}
+
+h1 {
+	font: var(--font-heading);
+	margin: var(--spacing-unit) 0;
+	padding: 0;
+}
+
+h2,
+h3,
+h4,
+h5,
+h6 {
+	font: var(--font-subheading);
+	margin: var(--spacing-unit) 0;
+	padding: 0;
 }
 
 p {
@@ -63,4 +85,15 @@ p {
 .context--warning {
 	background-color: var(--color-warning);
 	color: var(--color-on-warning);
+}
+
+.sr-only.sr-only {
+	border: 0;
+	clip: rect(0 0 0 0);
+	height: 1px;
+	margin: -1px;
+	overflow: hidden;
+	padding: 0;
+	position: absolute;
+	width: 1px;
 }

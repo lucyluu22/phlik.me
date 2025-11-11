@@ -4,12 +4,10 @@
 
 	interface Props extends HTMLInputAttributes {
 		label?: Snippet<[{ id: string }]>;
-		type?: string;
-		value?: string;
 	}
 
 	const id = $props.id();
-	let { value = $bindable(), label, type = 'text', ...inputProps }: Props = $props();
+	let { label, value = $bindable(), type = 'text', ...inputProps }: Props = $props();
 </script>
 
 {@render label?.({ id })}

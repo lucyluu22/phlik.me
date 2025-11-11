@@ -9,6 +9,7 @@ export interface ClientData {
 export interface ClientManager {
 	createClient(): Promise<ClientData>;
 	getClientByPrivateId(privateId: string): Promise<ClientData | null>;
+	generateLinkCode(publicId: string, expiry?: number): Promise<string>;
 }
 
 /**
@@ -39,5 +40,16 @@ export class RedisClientManager implements ClientManager {
 			privateId,
 			publicId: clientData.publicId
 		};
+	}
+
+	async generateLinkCode(publicId: string, expiry = 10 * 60): Promise<string> {
+		const linkCode = crypto.randomBytes(2).toString('hex').toUpperCase().replace(/0/g, 'G');
+		await this._redis.set(`linkcode:${linkCode}`, publicId, {
+			expiration: {
+				type: 'EX',
+				value: expiry
+			}
+		});
+		return linkCode;
 	}
 }

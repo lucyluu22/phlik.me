@@ -24,25 +24,28 @@ const poxyStorage: Storage = {
  */
 export class LocalClient {
 	private _storage: Storage;
+	private readonly _privateIdKey: string = 'client.privateId';
+	private readonly _publicIdKey: string = 'client.publicId';
+	private readonly _nameKey: string = 'client.name';
 
 	constructor(storage: Storage = globalThis.localStorage ?? poxyStorage) {
 		this._storage = storage;
 	}
 
 	setName(name: string): void {
-		this._storage.setItem('client.name', name);
+		this._storage.setItem(this._nameKey, name);
 	}
 
 	getName(): string | null {
-		return this._storage.getItem('client.name');
+		return this._storage.getItem(this._nameKey);
 	}
 
 	getPrivateId(): string | null {
-		return this._storage.getItem('client.privateId');
+		return this._storage.getItem(this._privateIdKey);
 	}
 
 	getPublicId(): string | null {
-		return this._storage.getItem('client.publicId');
+		return this._storage.getItem(this._publicIdKey);
 	}
 
 	isSetup(): boolean {
@@ -50,15 +53,15 @@ export class LocalClient {
 	}
 
 	setup({ publicId, privateId, name }: LocalClientData): void {
-		this._storage.setItem('client.name', name);
-		this._storage.setItem('client.publicId', publicId);
-		this._storage.setItem('client.privateId', privateId);
+		this._storage.setItem(this._nameKey, name);
+		this._storage.setItem(this._publicIdKey, publicId);
+		this._storage.setItem(this._privateIdKey, privateId);
 	}
 
 	destroy(): void {
-		this._storage.removeItem('client.name');
-		this._storage.removeItem('client.publicId');
-		this._storage.removeItem('client.privateId');
+		this._storage.removeItem(this._nameKey);
+		this._storage.removeItem(this._publicIdKey);
+		this._storage.removeItem(this._privateIdKey);
 	}
 }
 

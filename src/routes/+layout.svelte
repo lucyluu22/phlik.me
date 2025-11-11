@@ -1,5 +1,6 @@
 <script lang="ts">
 	import '$lib/styles/theme.css';
+	import '$lib/styles/icons.css';
 
 	import { dev } from '$app/environment';
 	import { LocalClient, setLocalClient } from '$lib/models/LocalClient';
@@ -38,24 +39,25 @@
 
 <style>
 	header {
+		height: 25vh;
 		display: flex;
 		justify-content: center;
 		align-items: center;
-		height: 25vh;
-		margin-bottom: 2rem;
+		flex-direction: column;
+		margin-bottom: calc(var(--spacing-unit) * 4);
 	}
 
 	header hgroup {
 		flex: 1;
 		display: flex;
 		flex-direction: column;
-		height: 100%;
+		width: 100%;
 		text-align: center;
 	}
 
 	header h1 {
+		flex: 1;
 		width: 100%;
-		height: 100%;
 		margin: 0;
 		padding: 0;
 		color: transparent;
@@ -77,6 +79,7 @@
 	}
 
 	main {
+		width: 100%;
 		max-width: 600px;
 		margin: 0 auto;
 		display: flex;
