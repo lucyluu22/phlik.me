@@ -16,15 +16,15 @@
 
 <ul role="menu">
 	<li role="menuitem">
-		<FileInput multiple title="Upload files and send to another phlick.me client">
+		<a class="button" href="/send" title="Upload files to another phlick.me client">
 			<span class="icon icon--inline icon--upload"></span>
 			Send Files
-		</FileInput>
+		</a>
 	</li>
 	<li role="menuitem">
-		<a class="button" href="/link" title="Generate a link code for another phlick.me client">
+		<a class="button" href="/manage" title="Manage linked clients">
 			<span class="icon icon--inline icon--link"></span>
-			Link Code
+			Manage Linked Clients
 		</a>
 	</li>
 </ul>

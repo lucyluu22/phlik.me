@@ -32,4 +32,9 @@
 	input:invalid {
 		border-color: var(--color-error);
 	}
+
+	input:disabled {
+		opacity: 0.6;
+		cursor: not-allowed;
+	}
 </style>

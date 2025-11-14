@@ -10,6 +10,7 @@ export interface ClientManager {
 	createClient(): Promise<ClientData>;
 	getClientByPrivateId(privateId: string): Promise<ClientData | null>;
 	generateLinkCode(publicId: string, expiry?: number): Promise<string>;
+	resolveLinkCode(linkCode: string): Promise<string | null>;
 }
 
 /**
@@ -34,11 +35,11 @@ export class RedisClientManager implements ClientManager {
 	}
 
 	async getClientByPrivateId(privateId: string): Promise<ClientData | null> {
-		const clientData = await this._redis.hGetAll(`client:${privateId}`);
-		if (!clientData) return null;
+		const publicId = await this._redis.hGet(`client:${privateId}`, 'publicId');
+		if (!publicId) return null;
 		return {
 			privateId,
-			publicId: clientData.publicId
+			publicId
 		};
 	}
 
@@ -51,5 +52,11 @@ export class RedisClientManager implements ClientManager {
 			}
 		});
 		return linkCode;
+	}
+
+	async resolveLinkCode(linkCode: string): Promise<string | null> {
+		const publicId = await this._redis.getDel(`linkcode:${linkCode}`);
+		if (!publicId) return null;
+		return publicId;
 	}
 }

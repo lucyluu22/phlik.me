@@ -1,53 +1,44 @@
 <script lang="ts">
 	import Button from '$lib/components/Button.svelte';
 	import Progress from '$lib/components/Progress.svelte';
-	import { getLocalClient } from '$lib/models/LocalClient';
+	import { getLocalClient, LocalClientEvents } from '$lib/models/LocalClient';
 	import { showToast, Context } from '$lib/components/Toast.svelte';
 	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 
-	let loading: boolean = true;
+	let loading: boolean = false;
 	let error: boolean = false;
-	let code: string = '';
+	let linkCode: string = '';
 
 	const localClient = getLocalClient();
-	const copyLinkCode = async (event: Event) => {
+
+	localClient.on(LocalClientEvents.clientConnected, () => {
+		// If a client connects while on this page, we can assume it was using the generated link code.
+		// For convenience, navigate back to the manage page.
+		goto('/manage', { replaceState: true });
+	});
+
+	const copyLinkCode = async () => {
 		try {
-			await navigator.clipboard.writeText(code);
+			await navigator.clipboard.writeText(linkCode);
 			showToast('Link code copied to clipboard');
 		} catch {
-			// If clipboard API fails, user will just select text manually
+			// If clipboard API fails, user will just copy text manually
 		}
 	};
+
 	const fetchLinkCode = async () => {
 		loading = true;
 		error = false;
-		code = '';
+		linkCode = '';
 
 		try {
-			const response = await fetch('/api/v1/client/link', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({
-					privateId: localClient.getPrivateId()
-				})
-			});
-
+			linkCode = await localClient.generateLinkCode();
 			loading = false;
-			if (!response.ok) {
-				error = true;
-				showToast(
-					`Server responded with ${response.status}: ${response.statusText}`,
-					Context.Error
-				);
-			} else {
-				code = (await response.json()).linkCode;
-			}
 		} catch (e) {
 			loading = false;
 			error = true;
-			showToast('An unexpected error occurred', Context.Error);
+			showToast((e as Error).message, Context.Error);
 		}
 	};
 
@@ -64,10 +55,11 @@
 			<h2>Error Generating Link Code</h2>
 		{:else}
 			<h2>Your Link Code</h2>
-			<button type="button" class="link-code" title="Copy" onclick={copyLinkCode}>{code}</button>
+			<button type="button" class="link-code" title="Copy" onclick={copyLinkCode}>{linkCode}</button
+			>
 			<p>
-				Enter this generated code on the client that wishes to connect with you. It only works once
-				and has a short expiration time.
+				Enter this generated code on the client you wish to connect with. It only works once and has
+				a short expiration time.
 			</p>
 		{/if}
 	{/if}

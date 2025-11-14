@@ -2,17 +2,22 @@
 	import '$lib/styles/theme.css';
 	import '$lib/styles/icons.css';
 
+	import type { LayoutProps } from './$types';
 	import { dev } from '$app/environment';
-	import { LocalClient, setLocalClient } from '$lib/models/LocalClient';
-	import Toast from '$lib/components/Toast.svelte';
+	import { LocalClient, LocalClientEvents, setLocalClient } from '$lib/models/LocalClient';
+	import Toast, { showToast, Context } from '$lib/components/Toast.svelte';
 	import favicon from '$lib/assets/favicon.svg';
 	import logo from '$lib/assets/logo.svg';
 	import { onMount } from 'svelte';
 
-	let { children } = $props();
+	let { children }: LayoutProps = $props();
 
 	const localClient = new LocalClient();
 	setLocalClient(localClient);
+
+	localClient.on(LocalClientEvents.clientConnected, ({ name }) => {
+		showToast(`${name} has connected!`, Context.Info, 5_000);
+	});
 
 	onMount(() => {
 		// @ts-expect-error Expose localClient for debugging
@@ -84,6 +89,6 @@
 		margin: 0 auto;
 		display: flex;
 		flex-direction: column;
-		align-items: center;
+		text-align: center;
 	}
 </style>
