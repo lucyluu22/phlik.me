@@ -2,7 +2,8 @@ import { EventEmitter } from '$lib/utils/EventEmitter';
 
 export enum MessageType {
 	CONNECTION_REQUEST = 'CONNECTION_REQUEST',
-	CONNECTION_RESPONSE = 'CONNECTION_RESPONSE'
+	CONNECTION_RESPONSE = 'CONNECTION_RESPONSE',
+	DISCONNECT = 'DISCONNECT'
 }
 
 export interface MessagePacket {

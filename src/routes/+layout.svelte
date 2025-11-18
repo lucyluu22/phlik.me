@@ -16,7 +16,7 @@
 	setLocalClient(localClient);
 
 	localClient.on(LocalClientEvents.clientConnected, ({ name }) => {
-		showToast(`${name} has connected!`, Context.Info, 5_000);
+		showToast(`${name} has connected!`, Context.info, 5_000);
 	});
 
 	onMount(() => {

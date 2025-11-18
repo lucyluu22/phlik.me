@@ -10,7 +10,7 @@
 
 	onMount(() => {
 		if (localClient.isSetup()) {
-			showToast('Client is already setup!', Context.Info);
+			showToast('Client is already setup!', Context.info);
 			goto('/', { replaceState: true });
 		}
 	});
@@ -35,13 +35,13 @@
 			showToast(`${clientName} is now ready!`);
 			goto('/', { replaceState: true });
 		} else {
-			showToast('Client setup failed. Please try again.', Context.Error);
+			showToast('Client setup failed. Please try again.', Context.danger);
 		}
 	}}
 >
 	<Input bind:value={clientName} required autofocus aria-describedby="client-name-help">
-		{#snippet label({ id })}
-			<label for={id}>Name This Client</label>
+		{#snippet label()}
+			<h2>Name This Client</h2>
 		{/snippet}
 	</Input>
 	<p id="client-name-help">
@@ -52,13 +52,6 @@
 </form>
 
 <style>
-	label {
-		font: var(--font-subheading);
-		display: block;
-		text-align: center;
-		margin-bottom: var(--spacing-unit);
-	}
-
 	form {
 		width: 100%;
 		display: flex;

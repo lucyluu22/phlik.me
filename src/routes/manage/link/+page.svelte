@@ -38,7 +38,7 @@
 		} catch (e) {
 			loading = false;
 			error = true;
-			showToast((e as Error).message, Context.Error);
+			showToast((e as Error).message, Context.danger);
 		}
 	};
 
@@ -67,8 +67,6 @@
 {#if !loading}
 	{#if error}
 		<Button onclick={fetchLinkCode}>Retry</Button>
-	{:else}
-		<a class="button" href="/">Done</a>
 	{/if}
 {/if}
 

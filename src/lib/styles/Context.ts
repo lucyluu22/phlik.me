@@ -1,11 +1,11 @@
 export enum Context {
-	Info = 'info',
-	Warning = 'warning',
-	Error = 'error'
+	info = 'info',
+	warning = 'warning',
+	danger = 'danger'
 }
 
 export enum ContextClass {
 	info = 'context--info',
 	warning = 'context--warning',
-	error = 'context--error'
+	danger = 'context--danger'
 }

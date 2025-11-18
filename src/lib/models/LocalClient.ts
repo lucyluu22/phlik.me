@@ -37,6 +37,7 @@ export class LocalClient extends EventEmitter<LocalCLientEventMap> {
 	private readonly _privateIdKey: string = 'client.privateId';
 	private readonly _publicIdKey: string = 'client.publicId';
 	private readonly _nameKey: string = 'client.name';
+	private readonly _connectionIdsKey: string = 'client.connectionPublicIds';
 	private readonly _getConnectionKey: (publicId: string) => string = (publicId) =>
 		`client.connection:${publicId}`;
 
@@ -68,15 +69,16 @@ export class LocalClient extends EventEmitter<LocalCLientEventMap> {
 		}
 	}
 
-	private _getClientConnection(publicId: string): ClientConnectionData | null {
-		const connectionsJSON = this._storage.getItem(this._getConnectionKey(publicId));
-		if (connectionsJSON) {
-			return JSON.parse(connectionsJSON) as ClientConnectionData;
-		}
-		return null;
+	private _getConnectionIds(): string[] {
+		return JSON.parse(this._storage.getItem(this._connectionIdsKey) || '[]');
 	}
 
 	private _setClientConnection(publicId: string, data: ClientConnectionData): void {
+		const connectionIds = this._getConnectionIds();
+		if (!connectionIds.includes(publicId)) {
+			connectionIds.unshift(publicId);
+			this._storage.setItem(this._connectionIdsKey, JSON.stringify(connectionIds));
+		}
 		this._storage.setItem(this._getConnectionKey(publicId), JSON.stringify(data));
 		this.emit(LocalClientEvents.clientConnected, { publicId, name: data.name });
 	}
@@ -102,7 +104,7 @@ export class LocalClient extends EventEmitter<LocalCLientEventMap> {
 		}
 
 		// Otherwise, check if it's a trusted client
-		const clientConnection = this._getClientConnection(message.clientId);
+		const clientConnection = this.getConnection(message.clientId);
 		if (clientConnection) {
 			return true;
 		}
@@ -135,6 +137,11 @@ export class LocalClient extends EventEmitter<LocalCLientEventMap> {
 			this._linkCodes.delete(message.authentication as string);
 		});
 
+		// When a client notifies us of disconnection, remove them from our connections too.
+		this._messageHandler.onMessage(MessageType.DISCONNECT, (message: MessagePacket) => {
+			this.disconnectClient(message.clientId, false);
+		});
+
 		if (this.isSetup()) {
 			this._setupAblyClient();
 		}
@@ -164,21 +171,25 @@ export class LocalClient extends EventEmitter<LocalCLientEventMap> {
 	}
 
 	isSetup(): boolean {
-		return this.getPrivateId() !== null && this.getPublicId() !== null;
+		return this.getName() !== null && this.getPrivateId() !== null && this.getPublicId() !== null;
 	}
 
 	setup({ publicId, privateId, name }: LocalClientData): void {
 		this._storage.setItem(this._nameKey, name);
 		this._storage.setItem(this._publicIdKey, publicId);
 		this._storage.setItem(this._privateIdKey, privateId);
+		this._storage.setItem(this._connectionIdsKey, JSON.stringify([]));
 
 		this._setupAblyClient();
 	}
 
 	destroy(): void {
-		this._storage.removeItem(this._nameKey);
-		this._storage.removeItem(this._publicIdKey);
-		this._storage.removeItem(this._privateIdKey);
+		for (let i = 0; i < this._storage.length; i++) {
+			const key = this._storage.key(i);
+			if (key && key.startsWith('client.')) {
+				this._storage.removeItem(key);
+			}
+		}
 
 		this._ablyClient?.close();
 		this._ablyClient = undefined;
@@ -254,6 +265,48 @@ export class LocalClient extends EventEmitter<LocalCLientEventMap> {
 		} finally {
 			// Always remove the link code after attempting connection
 			this._linkCodes.delete(linkCode);
+		}
+	}
+
+	getConnections(): ({ publicId: string } & ClientConnectionData)[] {
+		return this._getConnectionIds().map((publicId) => {
+			const connection = this.getConnection(publicId)!;
+			return {
+				publicId,
+				...connection
+			};
+		});
+	}
+
+	getConnection(publicId: string): ClientConnectionData | null {
+		const connectionsJSON = this._storage.getItem(this._getConnectionKey(publicId));
+		if (connectionsJSON) {
+			return JSON.parse(connectionsJSON) as ClientConnectionData;
+		}
+		return null;
+	}
+
+	updateConnectionName(publicId: string, name: string): void {
+		const connection = this.getConnection(publicId);
+		if (connection) {
+			connection.name = name;
+			this._storage.setItem(this._getConnectionKey(publicId), JSON.stringify(connection));
+		} else {
+			throw new Error('No such connection to update');
+		}
+	}
+
+	disconnectClient(publicId: string, sendDisconnectMessage: boolean = true): void {
+		const connectionIds = this._getConnectionIds().filter((id) => id !== publicId);
+		this._storage.setItem(this._connectionIdsKey, JSON.stringify(connectionIds));
+		this._storage.removeItem(this._getConnectionKey(publicId));
+
+		if (sendDisconnectMessage) {
+			// Notify the client that we have disconnected them, so they can remove us from their connections too.
+			this._messageHandler.send({
+				type: MessageType.DISCONNECT,
+				clientId: publicId
+			});
 		}
 	}
 }

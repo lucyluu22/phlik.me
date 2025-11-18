@@ -5,8 +5,8 @@
 	--opacity: 0.87;
 	--color-primary: #030618;
 	--color-on-primary: rgba(255, 255, 255, var(--opacity));
-	--color-error: #ff3333;
-	--color-on-error: rgba(255, 255, 255, var(--opacity));
+	--color-danger: #ff3333;
+	--color-on-danger: rgba(255, 255, 255, var(--opacity));
 	--color-info: #0077cc;
 	--color-on-info: rgba(255, 255, 255, var(--opacity));
 	--color-warning: #cc8f00;
@@ -71,20 +71,17 @@ p {
 	padding: 0;
 	margin: var(--spacing-unit) 0;
 }
-
-.context--info {
-	background-color: var(--color-info);
-	color: var(--color-on-info);
+p.context--danger {
+	color: var(--color-danger);
+	font-weight: bold;
 }
-
-.context--error {
-	background-color: var(--color-error);
-	color: var(--color-on-error);
+p.context--info {
+	color: var(--color-info);
+	font-weight: bold;
 }
-
-.context--warning {
-	background-color: var(--color-warning);
-	color: var(--color-on-warning);
+p.context--warning {
+	color: var(--color-warning);
+	font-weight: bold;
 }
 
 .sr-only.sr-only {

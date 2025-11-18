@@ -9,6 +9,10 @@
 <style>
 	button,
 	:global(.button) {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: var(--spacing-unit);
 		font: var(--font-button);
 		text-decoration: none;
 		text-align: center;
@@ -39,5 +43,16 @@
 	:global(.button:disabled) {
 		opacity: 0.6;
 		pointer-events: none;
+	}
+
+	button:global(.context--danger) {
+		border-color: var(--color-danger);
+		color: var(--color-danger);
+	}
+
+	button:global(.context--danger):hover,
+	button:global(.context--danger):focus {
+		background-color: var(--color-danger);
+		color: var(--color-on-danger);
 	}
 </style>
