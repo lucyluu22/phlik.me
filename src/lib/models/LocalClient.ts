@@ -1,15 +1,21 @@
 import { createContext } from 'svelte';
 import * as Ably from 'Ably';
-import { ClientMessageHandler, MessageType, type MessagePacket } from './ClientMessageHandler';
+import {
+	MessageHandler,
+	type MessagePacket,
+	type MessageHandlerMiddleware
+} from './MessageHandler';
+import { FileTransfer } from './FileTransfer';
 import { EventEmitter } from '$lib/utils/EventEmitter';
 import { poxyStorage } from '$lib/utils/poxyStorage';
 
-export interface LocalClientData {
-	publicId: string;
-	privateId: string;
-	name: string;
+export enum ClientMessageTypes {
+	CONNECTION_REQUEST = 'CLIENT__CONNECTION_REQUEST',
+	CONNECTION_RESPONSE = 'CLIENT__CONNECTION_RESPONSE',
+	DISCONNECT = 'CLIENT__DISCONNECT',
+	IDENTITY_REQUEST = 'CLIENT__IDENTITY_REQUEST',
+	IDENTITY_RESPONSE = 'CLIENT__IDENTITY_RESPONSE'
 }
-
 export interface ClientConnectionData {
 	name: string;
 }
@@ -24,15 +30,17 @@ type LocalCLientEventMap = {
 
 /**
  * @class LocalClient
- * Represents a local phlick.me client running in the browser.
+ * Singleton representing a local phlick.me client running in the browser.
  */
 export class LocalClient extends EventEmitter<LocalCLientEventMap> {
 	private _storage: Storage;
 	private _fetch: typeof globalThis.fetch;
 	private _AblySDK: typeof Ably;
 	private _ablyAuthURL: string;
-	private _messageHandler: ClientMessageHandler;
-	private _linkCodes: Set<string> = new Set();
+	private _messageHandler: MessageHandler;
+	private _fileTransfer: FileTransfer;
+	private _authTokens: Set<string> = new Set();
+	private _trustedClients: Set<string> = new Set();
 
 	private readonly _privateIdKey: string = 'client.privateId';
 	private readonly _publicIdKey: string = 'client.publicId';
@@ -80,6 +88,7 @@ export class LocalClient extends EventEmitter<LocalCLientEventMap> {
 			this._storage.setItem(this._connectionIdsKey, JSON.stringify(connectionIds));
 		}
 		this._storage.setItem(this._getConnectionKey(publicId), JSON.stringify(data));
+		this._trustedClients.add(publicId);
 		this.emit(LocalClientEvents.clientConnected, { publicId, name: data.name });
 	}
 
@@ -97,19 +106,22 @@ export class LocalClient extends EventEmitter<LocalCLientEventMap> {
 		});
 	};
 
-	private _authenticateMessage = (message: MessagePacket): boolean => {
-		// If there's an authentication token, check it against our link codes
-		if (message.authentication && this._linkCodes.has(message.authentication)) {
-			return true;
+	private _authenticateMessage: MessageHandlerMiddleware = (message, next) => {
+		// If there's an authentication token, check it against ours
+		if (message.authentication) {
+			if (this._authTokens.has(message.authentication)) {
+				return next();
+			}
+			console.warn(`Authentication token on message failed from client: ${message.clientId}`);
+			return;
 		}
 
 		// Otherwise, check if it's a trusted client
-		const clientConnection = this.getConnection(message.clientId);
-		if (clientConnection) {
-			return true;
+		if (this._trustedClients.has(message.clientId)) {
+			return next();
 		}
 
-		return false;
+		console.warn(`Authentication failed for message from client: ${message.clientId}`);
 	};
 
 	constructor(
@@ -124,21 +136,53 @@ export class LocalClient extends EventEmitter<LocalCLientEventMap> {
 		this._fetch = fetch;
 		this._AblySDK = ablySDK;
 		this._ablyAuthURL = ablyAuthUrl;
-		this._messageHandler = new ClientMessageHandler({
-			identify: () => this.getName() || 'UNKNOWN',
-			authenticate: this._authenticateMessage.bind(this),
+		this._messageHandler = new MessageHandler({
 			send: this._sendMessage.bind(this)
 		});
-
-		// Whenever we receive an authenticated connection request,
-		// store the client connection and remove the link code used for authentication.
-		this._messageHandler.onMessage(MessageType.CONNECTION_REQUEST, (message: MessagePacket) => {
-			this._setClientConnection(message.clientId, { name: message.data?.name as string });
-			this._linkCodes.delete(message.authentication as string);
+		this._fileTransfer = new FileTransfer({
+			messageHandler: this._messageHandler,
+			authHandler: this._authenticateMessage.bind(this),
+			storage: this._storage
 		});
+		this._trustedClients = new Set(this._getConnectionIds());
 
+		// Message handler for incoming connection requests
+		this._messageHandler.handleMessage<ClientConnectionData>(
+			ClientMessageTypes.CONNECTION_REQUEST,
+			this._authenticateMessage.bind(this),
+			(message) => {
+				// Send connection response
+				this._messageHandler.send({
+					type: ClientMessageTypes.CONNECTION_RESPONSE,
+					clientId: message.clientId,
+					data: {
+						name: this.getName()
+					}
+				});
+				this._setClientConnection(message.clientId, message.data);
+				this._authTokens.delete(message.authentication as string);
+			}
+		);
+
+		// Message handler for identity requests
+		this._messageHandler.handleMessage<ClientConnectionData>(
+			ClientMessageTypes.IDENTITY_REQUEST,
+			this._authenticateMessage.bind(this),
+			(message) => {
+				// Send identity response
+				this._messageHandler.send<ClientConnectionData>({
+					type: ClientMessageTypes.IDENTITY_RESPONSE,
+					clientId: message.clientId,
+					data: {
+						name: this.getName()!
+					}
+				});
+			}
+		);
+
+		// Message handler for disconnection notifications
 		// When a client notifies us of disconnection, remove them from our connections too.
-		this._messageHandler.onMessage(MessageType.DISCONNECT, (message: MessagePacket) => {
+		this._messageHandler.handleMessage(ClientMessageTypes.DISCONNECT, (message: MessagePacket) => {
 			this.disconnectClient(message.clientId, false);
 		});
 
@@ -148,7 +192,6 @@ export class LocalClient extends EventEmitter<LocalCLientEventMap> {
 
 		if (import.meta.hot) {
 			import.meta.hot.dispose(() => {
-				console.log('Disposing LocalClient Ably connection due to HMR');
 				this._ablyClient?.close();
 			});
 		}
@@ -170,17 +213,41 @@ export class LocalClient extends EventEmitter<LocalCLientEventMap> {
 		return this._storage.getItem(this._publicIdKey);
 	}
 
+	getFileTransfer(): FileTransfer {
+		return this._fileTransfer;
+	}
+
 	isSetup(): boolean {
 		return this.getName() !== null && this.getPrivateId() !== null && this.getPublicId() !== null;
 	}
 
-	setup({ publicId, privateId, name }: LocalClientData): void {
-		this._storage.setItem(this._nameKey, name);
-		this._storage.setItem(this._publicIdKey, publicId);
-		this._storage.setItem(this._privateIdKey, privateId);
-		this._storage.setItem(this._connectionIdsKey, JSON.stringify([]));
+	/**
+	 * Calls the ClientManager to create a new client and stores the returned public and private ID.
+	 * @param name The name to assign to the new client.
+	 */
+	async setup(name: string = 'Anonymous Client'): Promise<void> {
+		if (this.isSetup()) {
+			console.warn('Attempt to call setup() on an already setup LocalClient');
+			return;
+		}
 
-		this._setupAblyClient();
+		const response = await this._fetch('/api/v1/client/create', {
+			method: 'POST'
+		});
+
+		if (response.ok) {
+			const clientData = await response.json();
+			const { publicId, privateId } = clientData;
+
+			this._storage.setItem(this._nameKey, name);
+			this._storage.setItem(this._publicIdKey, publicId);
+			this._storage.setItem(this._privateIdKey, privateId);
+			this._storage.setItem(this._connectionIdsKey, JSON.stringify([]));
+
+			this._setupAblyClient();
+		} else {
+			throw new Error(`Server responded with ${response.status}: ${response.statusText}`);
+		}
 	}
 
 	destroy(): void {
@@ -216,7 +283,7 @@ export class LocalClient extends EventEmitter<LocalCLientEventMap> {
 		}
 
 		const linkCode = (await response.json()).linkCode;
-		this._linkCodes.add(linkCode);
+		this._authTokens.add(linkCode);
 		return linkCode;
 	}
 
@@ -227,7 +294,7 @@ export class LocalClient extends EventEmitter<LocalCLientEventMap> {
 	 * @param linkCode The link code generated from another client.
 	 */
 	async connectClientFromLinkCode(linkCode: string): Promise<void> {
-		if (this._linkCodes.has(linkCode)) {
+		if (this._authTokens.has(linkCode)) {
 			throw new Error('You cannot connect with your own link code!');
 		}
 
@@ -257,15 +324,49 @@ export class LocalClient extends EventEmitter<LocalCLientEventMap> {
 		}
 
 		try {
-			this._linkCodes.add(linkCode); // Add the link code for authentication on the response
-			const clientName = await this._messageHandler.connectionHandshake(publicId, linkCode);
-			this._setClientConnection(publicId, { name: clientName });
+			this._authTokens.add(linkCode); // Add the link code for authentication on the response
+			// Send connection request
+			this._messageHandler.send<ClientConnectionData>({
+				type: ClientMessageTypes.CONNECTION_REQUEST,
+				clientId: publicId,
+				authentication: linkCode,
+				data: {
+					name: this.getName()!
+				}
+			});
+			const response = await this._messageHandler.waitForMessage<ClientConnectionData>(
+				ClientMessageTypes.CONNECTION_RESPONSE,
+				(message) => message.clientId === publicId
+			);
+			this._setClientConnection(publicId, response.data);
 		} catch {
 			throw new Error('Client connection handshake failed');
 		} finally {
 			// Always remove the link code after attempting connection
-			this._linkCodes.delete(linkCode);
+			this._authTokens.delete(linkCode);
 		}
+	}
+
+	/**
+	 * Sends an identity request to a remote client.
+	 * @param publicId
+	 * @param authToken
+	 * @returns
+	 */
+	async identifyClient(publicId: string, authToken?: string): Promise<string> {
+		// Send identity request
+		this._messageHandler.send<undefined>({
+			type: ClientMessageTypes.IDENTITY_REQUEST,
+			clientId: publicId,
+			authentication: authToken
+		});
+
+		const response = await this._messageHandler.waitForMessage<ClientConnectionData>(
+			ClientMessageTypes.IDENTITY_RESPONSE,
+			(message) => message.clientId === publicId
+		);
+
+		return response.data.name;
 	}
 
 	getConnections(): ({ publicId: string } & ClientConnectionData)[] {
@@ -303,11 +404,32 @@ export class LocalClient extends EventEmitter<LocalCLientEventMap> {
 
 		if (sendDisconnectMessage) {
 			// Notify the client that we have disconnected them, so they can remove us from their connections too.
-			this._messageHandler.send({
-				type: MessageType.DISCONNECT,
+			this._messageHandler.send<undefined>({
+				type: ClientMessageTypes.DISCONNECT,
 				clientId: publicId
 			});
 		}
+	}
+
+	/**
+	 * Generates a url path that can be used to share files from this client to anyone with the link.
+	 * It consists of this client's public ID and a link code the receiver can use for authentication.
+	 * @returns
+	 */
+	generatePublicURLPath(): string {
+		const publicId = this.getPublicId();
+		const linkCode = crypto.getRandomValues(new Uint32Array(1))[0].toString(36);
+		this._authTokens.add(linkCode);
+		return `${publicId}/${linkCode}`;
+	}
+
+	/**
+	 * Disposes of a previously generated public URL path, invalidating its generated link code.
+	 * @param path The public URL path generated by generatePublicURLPath().
+	 */
+	disposePublicURLPath(path: string): void {
+		const [, linkCode] = path.split('/');
+		this._authTokens.delete(linkCode);
 	}
 }
 

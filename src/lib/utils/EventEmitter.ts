@@ -10,9 +10,14 @@
 type InternalListener = (...args: unknown[]) => void;
 
 export class EventEmitter<Events extends Record<string | symbol, unknown[]>> {
+	static ALL: symbol = Symbol('ALL_EVENTS');
+
 	private listeners = new Map<keyof Events, Set<InternalListener>>();
 
-	on<K extends keyof Events>(event: K, listener: (...args: Events[K]) => void): this {
+	on<K extends keyof Events>(
+		event: K | typeof EventEmitter.ALL,
+		listener: (...args: Events[K]) => void
+	): this {
 		let set = this.listeners.get(event);
 		if (!set) {
 			set = new Set();
@@ -22,13 +27,19 @@ export class EventEmitter<Events extends Record<string | symbol, unknown[]>> {
 		return this;
 	}
 
-	off<K extends keyof Events>(event: K, listener: (...args: Events[K]) => void): this {
+	off<K extends keyof Events>(
+		event: K | typeof EventEmitter.ALL,
+		listener: (...args: Events[K]) => void
+	): this {
 		const set = this.listeners.get(event);
 		if (set) set.delete(listener as unknown as InternalListener);
 		return this;
 	}
 
-	once<K extends keyof Events>(event: K, listener: (...args: Events[K]) => void): this {
+	once<K extends keyof Events>(
+		event: K | typeof EventEmitter.ALL,
+		listener: (...args: Events[K]) => void
+	): this {
 		const wrapper = (...args: unknown[]) => {
 			this.off(event, wrapper as unknown as InternalListener);
 			listener(...(args as Events[K]));
@@ -37,9 +48,23 @@ export class EventEmitter<Events extends Record<string | symbol, unknown[]>> {
 	}
 
 	emit<K extends keyof Events>(event: K, ...args: Events[K]): boolean {
+		const allSet = this.listeners.get(EventEmitter.ALL);
+		if (allSet) {
+			const allArr = Array.from(allSet.values()) as Array<InternalListener>;
+			for (const fn of allArr) {
+				try {
+					fn(event, ...(args as unknown[]));
+				} catch (err) {
+					// swallow listener errors so one bad listener doesn't break others
+					// feel free to log or rethrow depending on needs
+					console.error('Event listener error', err);
+				}
+			}
+		}
+
 		const set = this.listeners.get(event);
-		if (!set || set.size === 0) return false;
-		const arr = Array.from(set.values()) as Array<InternalListener>;
+		const arr = Array.from(set?.values() ?? []) as Array<InternalListener>;
+		if (arr.length === 0) return false;
 		for (const fn of arr) {
 			try {
 				fn(...(args as unknown[]));
@@ -52,7 +77,7 @@ export class EventEmitter<Events extends Record<string | symbol, unknown[]>> {
 		return true;
 	}
 
-	removeAllListeners<K extends keyof Events>(event?: K): this {
+	removeAllListeners<K extends keyof Events>(event?: K | typeof EventEmitter.ALL): this {
 		if (typeof event === 'undefined') {
 			this.listeners.clear();
 		} else {
@@ -61,12 +86,14 @@ export class EventEmitter<Events extends Record<string | symbol, unknown[]>> {
 		return this;
 	}
 
-	listenersOf<K extends keyof Events>(event: K): Array<(...args: Events[K]) => void> {
+	listenersOf<K extends keyof Events>(
+		event: K | typeof EventEmitter.ALL
+	): Array<(...args: Events[K]) => void> {
 		const set = this.listeners.get(event);
 		return set ? (Array.from(set.values()) as Array<(...args: Events[K]) => void>) : [];
 	}
 
-	listenerCount<K extends keyof Events>(event: K): number {
+	listenerCount<K extends keyof Events>(event: K | typeof EventEmitter.ALL): number {
 		return this.listeners.get(event)?.size ?? 0;
 	}
 }

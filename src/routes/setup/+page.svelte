@@ -21,20 +21,11 @@
 	method="POST"
 	onsubmit={async (event) => {
 		event.preventDefault();
-		const response = await fetch('/api/v1/client/create', {
-			method: 'POST'
-		});
-
-		if (response.ok) {
-			const clientData = await response.json();
-			localClient.setup({
-				name: clientName,
-				publicId: clientData.publicId,
-				privateId: clientData.privateId
-			});
+		try {
+			await localClient.setup(clientName);
 			showToast(`${clientName} is now ready!`);
 			goto('/', { replaceState: true });
-		} else {
+		} catch {
 			showToast('Client setup failed. Please try again.', Context.danger);
 		}
 	}}

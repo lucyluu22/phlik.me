@@ -16,9 +16,4 @@
 		flex-direction: column;
 		margin: var(--spacing-unit) 0;
 	}
-
-	li.separator {
-		padding-top: var(--spacing-unit);
-		margin: 0;
-	}
 </style>
