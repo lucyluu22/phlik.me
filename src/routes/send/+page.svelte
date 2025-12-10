@@ -40,6 +40,10 @@
 				id="client-select"
 				placeholder="Select Connected Client"
 				options={clients.map((client) => ({ value: client.publicId, label: client.name }))}
+				onchange={(e) => {
+					const selectedClientId = e.currentTarget.value;
+					goto(`/send/client/${selectedClientId}`);
+				}}
 			/>
 		{:else}
 			<a class="button" href="/manage">

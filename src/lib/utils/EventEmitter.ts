@@ -56,7 +56,6 @@ export class EventEmitter<Events extends Record<string | symbol, unknown[]>> {
 					fn(event, ...(args as unknown[]));
 				} catch (err) {
 					// swallow listener errors so one bad listener doesn't break others
-					// feel free to log or rethrow depending on needs
 					console.error('Event listener error', err);
 				}
 			}
@@ -70,7 +69,6 @@ export class EventEmitter<Events extends Record<string | symbol, unknown[]>> {
 				fn(...(args as unknown[]));
 			} catch (err) {
 				// swallow listener errors so one bad listener doesn't break others
-				// feel free to log or rethrow depending on needs
 				console.error('Event listener error', err);
 			}
 		}

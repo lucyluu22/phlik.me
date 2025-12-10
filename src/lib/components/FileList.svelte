@@ -5,6 +5,7 @@
 	export const STATUS_ERROR = 'ERROR';
 
 	export interface FileListItem {
+		id?: string;
 		name: string;
 		size: number;
 		type: string;
@@ -13,17 +14,24 @@
 	}
 </script>
 
-<script lang="ts">
+<script lang="ts" generics="FileListItemType extends FileListItem = FileListItem">
 	import { getHumanReadableSize } from '$lib/utils/getHumanReadableSize';
 	import Progress from '$lib/components/Progress.svelte';
+	import Button from './Button.svelte';
 	import type { Snippet } from 'svelte';
+	import { SvelteMap } from 'svelte/reactivity';
 
 	interface Props {
-		files: FileListItem[];
-		fileItemControls?: Snippet<[FileListItem]>;
+		files: FileListItemType[];
+		fileItemControls?: Snippet<[FileListItemType]>;
+		fileItemDetails?: Snippet<[FileListItemType]>;
+		onSelectFile?: (file: FileListItemType) => void;
 	}
 
-	const { files, fileItemControls }: Props = $props();
+	const { files, fileItemControls, fileItemDetails, onSelectFile }: Props = $props();
+	const expandable = !!fileItemDetails;
+
+	const expandState = new SvelteMap<number | string, boolean>();
 
 	const filetypeClassMap: Record<string, string> = {
 		image: 'file-list__filetype-image',
@@ -56,17 +64,25 @@
 	};
 </script>
 
-{#snippet fileName(file: FileListItem)}
-	<span class="file-list__name">{file.name}</span>
-{/snippet}
-
 <ul class="file-list">
-	{#each files as file}
-		<li class={['file-list__item', getFileTypeClass(file)]}>
+	{#each files as file, index}
+		<li
+			class={{
+				'file-list__item': true,
+				'file-list__item--expanded': expandState.get(file.id ?? index)
+			}}
+		>
 			<span class="file-list__container">
 				<span class="file-list__header">
-					<span class="file-list__details">
-						{@render fileName(file)}
+					<button
+						class="file-list__select"
+						disabled={!onSelectFile}
+						onclick={() => onSelectFile?.(file)}
+					>
+						<span class={['file-list__icon', getFileTypeClass(file)]} title={file.type}>
+							<span class="sr-only">{file.type}</span>
+						</span>
+						<span class="file-list__name">{file.name}</span>
 						<span class="file-list__size">
 							{#if file.status && file.bytesTransferred !== undefined}
 								({getHumanReadableSize(file.bytesTransferred!)} / {getHumanReadableSize(file.size)})
@@ -74,13 +90,33 @@
 								({getHumanReadableSize(file.size)})
 							{/if}
 						</span>
-					</span>
-					{#if fileItemControls}
+					</button>
+					{#if expandable}
+						<span class="file-list__expand">
+							<Button
+								onclick={() =>
+									expandState.set(file.id ?? index, !expandState.get(file.id ?? index))}
+							>
+								<span class="icon icon--info"></span>
+							</Button>
+						</span>
+					{/if}
+					{#if !expandable && fileItemControls}
 						<span class="file-list__controls">
 							{@render fileItemControls(file)}
 						</span>
 					{/if}
 				</span>
+				{#if expandable && expandState.get(file.id ?? index)}
+					<span class="file-list__details">
+						{@render fileItemDetails?.(file)}
+						{#if fileItemControls}
+							<span class="file-list__controls">
+								{@render fileItemControls(file)}
+							</span>
+						{/if}
+					</span>
+				{/if}
 				{#if file.status}
 					{#if file.status === STATUS_COMPLETED}
 						<p>Transfer Completed</p>
@@ -109,17 +145,15 @@
 	}
 	.file-list__item {
 		display: flex;
-		align-items: center;
+		align-items: flex-start;
 		gap: var(--spacing-unit);
 		margin: var(--spacing-unit) 0;
 	}
-	.file-list__item::before {
-		content: '';
+	.file-list__icon {
 		display: block;
-		align-self: flex-start;
-		/* Same size as icon button basically */
-		width: calc(1rem + 4px + var(--spacing-unit) * 2);
-		height: calc(1rem + 4px + var(--spacing-unit) * 2);
+		width: 2rem;
+		height: 2rem;
+		flex-shrink: 0;
 		background: var(--color-on-primary);
 		mask-image: var(
 			--file-icon,
@@ -129,28 +163,57 @@
 		mask-position: center;
 		mask-repeat: no-repeat;
 	}
-
 	.file-list__container {
 		display: block;
 		flex: 1;
+		overflow: hidden;
 	}
 	.file-list__header {
 		display: flex;
 		justify-content: space-between;
-		align-items: center;
+		align-items: flex-start;
 		gap: var(--spacing-unit);
 	}
+	button.file-list__select {
+		display: flex;
+		gap: var(--spacing-unit);
+		overflow: hidden;
+		width: 100%;
+		padding: 0;
+		background: inherit;
+		font: inherit;
+		text-align: left;
+		color: inherit;
+		border: none;
+		cursor: pointer;
+		user-select: text;
+	}
+	button.file-list__select:disabled {
+		cursor: default;
+	}
 	.file-list__details {
+		display: block;
+		margin-left: calc(2rem + var(--spacing-unit));
 		flex: 1;
 	}
 	.file-list__name {
+		flex: 1;
 		font-weight: bold;
+		text-overflow: ellipsis;
+		overflow: hidden;
+		white-space: nowrap;
+	}
+	.file-list__item--expanded .file-list__name {
+		overflow: visible;
+		line-break: anywhere;
+		white-space: normal;
 	}
 	.file-list__size {
 		white-space: nowrap;
 	}
 	.file-list__controls {
-		align-self: flex-start;
+		display: flex;
+		gap: var(--spacing-unit);
 	}
 	.file-list__error {
 		color: var(--color-danger);

@@ -4,7 +4,7 @@
 
 	import type { LayoutProps } from './$types';
 	import { dev } from '$app/environment';
-	import { LocalClient, LocalClientEvents, setLocalClient } from '$lib/models/LocalClient';
+	import { getLocalClient, LocalClientEvents } from '$lib/models/LocalClient';
 	import Toast, { showToast, Context } from '$lib/components/Toast.svelte';
 	import favicon from '$lib/assets/favicon.svg';
 	import logo from '$lib/assets/logo.svg';
@@ -12,8 +12,7 @@
 
 	let { children }: LayoutProps = $props();
 
-	const localClient = new LocalClient();
-	setLocalClient(localClient);
+	const localClient = getLocalClient();
 
 	localClient.on(LocalClientEvents.clientConnected, ({ name }) => {
 		showToast(`${name} has connected!`, Context.info, 5_000);

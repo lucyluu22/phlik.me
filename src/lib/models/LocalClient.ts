@@ -1,4 +1,3 @@
-import { createContext } from 'svelte';
 import * as Ably from 'Ably';
 import {
 	MessageHandler,
@@ -6,8 +5,13 @@ import {
 	type MessageHandlerMiddleware
 } from './MessageHandler';
 import { FileTransfer } from './FileTransfer';
+import { type FileStorage, IndexedDBFileStorage, PoxyFileStorage } from './FileStorage';
 import { EventEmitter } from '$lib/utils/EventEmitter';
 import { poxyStorage } from '$lib/utils/poxyStorage';
+
+if (import.meta.hot) {
+	import.meta.hot.accept();
+}
 
 export enum ClientMessageTypes {
 	CONNECTION_REQUEST = 'CLIENT__CONNECTION_REQUEST',
@@ -39,6 +43,7 @@ export class LocalClient extends EventEmitter<LocalCLientEventMap> {
 	private _ablyAuthURL: string;
 	private _messageHandler: MessageHandler;
 	private _fileTransfer: FileTransfer;
+	private _fileStorage: FileStorage;
 	private _authTokens: Set<string> = new Set();
 	private _trustedClients: Set<string> = new Set();
 
@@ -126,6 +131,9 @@ export class LocalClient extends EventEmitter<LocalCLientEventMap> {
 
 	constructor(
 		storage: Storage = globalThis.localStorage ?? poxyStorage,
+		fileStorage: FileStorage = globalThis.indexedDB
+			? new IndexedDBFileStorage()
+			: new PoxyFileStorage(),
 		fetch: typeof globalThis.fetch = globalThis.fetch,
 		ablyAuthUrl: string = '/api/v1/ably/auth',
 		ablySDK: typeof Ably = Ably
@@ -139,11 +147,14 @@ export class LocalClient extends EventEmitter<LocalCLientEventMap> {
 		this._messageHandler = new MessageHandler({
 			send: this._sendMessage.bind(this)
 		});
+		this._fileStorage = fileStorage;
 		this._fileTransfer = new FileTransfer({
 			messageHandler: this._messageHandler,
 			authHandler: this._authenticateMessage.bind(this),
-			storage: this._storage
+			fileStorage,
+			storage
 		});
+
 		this._trustedClients = new Set(this._getConnectionIds());
 
 		// Message handler for incoming connection requests
@@ -192,9 +203,14 @@ export class LocalClient extends EventEmitter<LocalCLientEventMap> {
 
 		if (import.meta.hot) {
 			import.meta.hot.dispose(() => {
-				this._ablyClient?.close();
+				this.destroy();
 			});
 		}
+	}
+
+	destroy(): void {
+		this.removeAllListeners();
+		this._fileTransfer.destroy();
 	}
 
 	setName(name: string): void {
@@ -215,6 +231,10 @@ export class LocalClient extends EventEmitter<LocalCLientEventMap> {
 
 	getFileTransfer(): FileTransfer {
 		return this._fileTransfer;
+	}
+
+	getFileStorage(): FileStorage {
+		return this._fileStorage;
 	}
 
 	isSetup(): boolean {
@@ -248,18 +268,6 @@ export class LocalClient extends EventEmitter<LocalCLientEventMap> {
 		} else {
 			throw new Error(`Server responded with ${response.status}: ${response.statusText}`);
 		}
-	}
-
-	destroy(): void {
-		for (let i = 0; i < this._storage.length; i++) {
-			const key = this._storage.key(i);
-			if (key && key.startsWith('client.')) {
-				this._storage.removeItem(key);
-			}
-		}
-
-		this._ablyClient?.close();
-		this._ablyClient = undefined;
 	}
 
 	/**
@@ -433,4 +441,12 @@ export class LocalClient extends EventEmitter<LocalCLientEventMap> {
 	}
 }
 
-export const [getLocalClient, setLocalClient] = createContext<LocalClient>();
+export const getLocalClient = (() => {
+	let localClient: LocalClient | null = null;
+	return () => {
+		if (!localClient) {
+			localClient = new LocalClient();
+		}
+		return localClient;
+	};
+})();

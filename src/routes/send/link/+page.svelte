@@ -38,7 +38,7 @@
 		file.status = STATUS_COMPLETED;
 	});
 
-	fileTransferSession.on(FileTransferEvents.FILE_TRANSFER_ERROR, (fileName, error) => {
+	fileTransferSession.on(FileTransferEvents.FILE_TRANSFER_ERROR, (error, fileName) => {
 		const file = fileListState.find((file) => file.name === fileName)!;
 		file.status = STATUS_ERROR;
 	});
@@ -46,20 +46,29 @@
 	const transferProgressProps: TransferProgressProps = $derived.by(() => {
 		const transferringFiles = fileListState.filter((file) => file.status === STATUS_TRANSFERRING);
 		const completedFiles = fileListState.filter((file) => file.status === STATUS_COMPLETED);
+		const errorFiles = fileListState.filter((file) => file.status === STATUS_ERROR);
 
 		if (transferringFiles.length === 0) {
 			if (completedFiles.length === 0) {
+				if (errorFiles.length > 0) {
+					return {
+						max: 1,
+						value: 0,
+						label: `Transfer Failed`
+					};
+				}
+
 				return {
 					max: 1,
 					value: undefined,
-					label: 'Waiting for receiver...'
+					label: 'Waiting For Receiver...'
 				};
 			}
 
 			return {
 				max: fileListState.reduce((sum, file) => sum + file.size, 0),
 				value: completedFiles.reduce((sum, file) => sum + file.size, 0),
-				label: `Transferred ${completedFiles.length}/${fileListState.length} file(s)`
+				label: `Transferred ${completedFiles.length}/${fileListState.length} File(s)`
 			};
 		}
 
@@ -71,7 +80,7 @@
 		return {
 			max: totalSize,
 			value: totalTransferred,
-			label: `Transferring ${transferringFiles.length} file(s)...`
+			label: `Transferring ${transferringFiles.length} File(s)...`
 		};
 	});
 
@@ -90,7 +99,7 @@
 
 				fileTransferSession.on(
 					FileTransferEvents.FILE_TRANSFER_PROGRESS,
-					throttle((fileName: string, bytesSent: number) => {
+					throttle((bytesSent: number, fileName: string) => {
 						if (fileName === file.name) {
 							fileListState[index].bytesTransferred = bytesSent;
 						}
@@ -113,7 +122,16 @@
 	<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 16 16">
 		<path
 			fill="currentColor"
-			d="M5 1a2 2 0 0 0-2 2v2.401a3 3 0 0 1 1-.36V3a1 1 0 0 1 1-1h3v2.5A1.5 1.5 0 0 0 9.5 6H12v7a1 1 0 0 1-1 1H8.632a3.3 3.3 0 0 1-.804.985L7.81 15H11a2 2 0 0 0 2-2V5.414a1.5 1.5 0 0 0-.44-1.06L9.647 1.439A1.5 1.5 0 0 0 8.586 1zm6.793 4H9.5a.5.5 0 0 1-.5-.5V2.207zM6.5 8a2 2 0 1 1-4 0a2 2 0 0 1 4 0M8 12.5C8 13.745 7 15 4.5 15S1 13.75 1 12.5A1.5 1.5 0 0 1 2.5 11h4A1.5 1.5 0 0 1 8 12.5"
+			d="M6 2h7a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H8v1h2v1H8v1h3.5a.5.5 0 0 0 0-1H11v-1h2a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v2h1V3a1 1 0 0 1 1-1M3.5 12a.5.5 0 0 0 0 1h1a.5.5 0 0 0 0-1zm-1-6A1.5 1.5 0 0 0 1 7.5v6A1.5 1.5 0 0 0 2.5 15h3A1.5 1.5 0 0 0 7 13.5v-6A1.5 1.5 0 0 0 5.5 6zm0 1h3a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-6a.5.5 0 0 1 .5-.5"
+		/>
+	</svg>
+{/snippet}
+
+{#snippet receiverIcon()}
+	<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 20 20">
+		<path
+			fill="currentColor"
+			d="M10 18q.338 0 .668-.027a2 2 0 0 1-1.559-1.319c-.392-.305-.783-.817-1.13-1.562a9.3 9.3 0 0 1-.56-1.592H9v-1H7.206A15 15 0 0 1 7 10c0-.883.073-1.725.206-2.5h5.588c.133.775.206 1.617.206 2.5h1c0-.87-.067-1.712-.193-2.5h2.733c.297.776.46 1.62.46 2.5h1a8 8 0 1 0-8 8m0-15c.657 0 1.407.59 2.022 1.908c.217.466.406 1.002.559 1.592H7.419c.153-.59.342-1.126.56-1.592C8.592 3.59 9.342 3 10 3M7.072 4.485A10.5 10.5 0 0 0 6.389 6.5H3.936a7.02 7.02 0 0 1 3.778-3.118c-.241.33-.456.704-.642 1.103M6.192 7.5A16 16 0 0 0 6 10c0 .87.067 1.712.193 2.5H3.46A7 7 0 0 1 3 10c0-.88.163-1.724.46-2.5zm.197 6c.176.743.407 1.422.683 2.015c.186.399.401.773.642 1.103A7.02 7.02 0 0 1 3.936 13.5zm5.897-10.118A7.02 7.02 0 0 1 16.064 6.5H13.61a10.5 10.5 0 0 0-.683-2.015a6.6 6.6 0 0 0-.642-1.103M10 12a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-2v1h.5a.5.5 0 0 1 0 1h-4a.5.5 0 0 1 0-1h.5v-1h-2a1 1 0 0 1-1-1z"
 		/>
 	</svg>
 {/snippet}
@@ -134,7 +152,7 @@
 		{@render transferProgress(transferProgressProps)}
 	</div>
 	<div class="receiver">
-		{@render clientIcon()}
+		{@render receiverIcon()}
 	</div>
 </div>
 <h2>Your Link</h2>
@@ -167,14 +185,11 @@
 	.transfer-status .receiver {
 		flex: 1;
 	}
-	.transfer-status .receiver {
-		transform: scaleX(-1);
-	}
 	.transfer-status .transfer {
 		flex: 2;
 		display: flex;
 		flex-direction: column;
-		justify-content: flex-end;
+		justify-content: center;
 	}
 
 	.link {

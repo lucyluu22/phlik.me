@@ -6,6 +6,7 @@ import type {
 import { PUBLIC_ICE_SERVER_LIST_URL } from '$env/static/public';
 import { EventEmitter } from '$lib/utils/EventEmitter';
 import { poxyStorage } from '$lib/utils/poxyStorage';
+import type { FileStorage } from './FileStorage';
 
 export interface FileData {
 	name: string;
@@ -16,7 +17,8 @@ export interface FileData {
 export enum FileMessageTypes {
 	LIST_REQUEST = 'FILE__LIST_REQUEST',
 	LIST_RESPONSE = 'FILE__LIST_RESPONSE',
-	TRANSFER_REQUEST = 'FILE__TRANSFER_REQUEST',
+	SEND_REQUEST = 'FILE__SEND_REQUEST',
+	RECEIVE_REQUEST = 'FILE__RECEIVE_REQUEST',
 	RTC_OFFER = 'FILE__RTC_OFFER',
 	RTC_ANSWER = 'FILE__RTC_ANSWER',
 	RTC_ICE_CANDIDATE = 'FILE__RTC_ICE_CANDIDATE'
@@ -26,9 +28,12 @@ export type FileListResponseData = {
 	files: FileData[];
 };
 
-export type TransferRequestData = {
+export type FileSendRequestData = {
+	files: FileData[];
+};
+
+export type FileReceiveRequestData = {
 	files: string[];
-	refreshConnection: boolean;
 };
 
 export type ICECandidateData = {
@@ -36,6 +41,7 @@ export type ICECandidateData = {
 };
 
 export enum FileTransferEvents {
+	FILE_TRANSFER_CONNECTION_STATE = 'file:transferConnectionState',
 	FILE_TRANSFER_OPENED = 'file:transferOpened',
 	FILE_RECEIVED_CHUNK = 'file:receivedChunk',
 	FILE_TRANSFER_PROGRESS = 'file:transferProgress',
@@ -44,11 +50,12 @@ export enum FileTransferEvents {
 }
 
 type FileTransferEventMap = {
-	[FileTransferEvents.FILE_RECEIVED_CHUNK]: [string, ArrayBuffer];
-	[FileTransferEvents.FILE_TRANSFER_OPENED]: [string];
-	[FileTransferEvents.FILE_TRANSFER_COMPLETED]: [string];
-	[FileTransferEvents.FILE_TRANSFER_ERROR]: [string, Error];
-	[FileTransferEvents.FILE_TRANSFER_PROGRESS]: [string, number];
+	[FileTransferEvents.FILE_RECEIVED_CHUNK]: [ArrayBuffer, string, string];
+	[FileTransferEvents.FILE_TRANSFER_OPENED]: [string, string];
+	[FileTransferEvents.FILE_TRANSFER_COMPLETED]: [string, string];
+	[FileTransferEvents.FILE_TRANSFER_ERROR]: [Error, string, string];
+	[FileTransferEvents.FILE_TRANSFER_PROGRESS]: [number, string, string];
+	[FileTransferEvents.FILE_TRANSFER_CONNECTION_STATE]: [RTCPeerConnectionState, string];
 };
 
 /**
@@ -60,13 +67,14 @@ export class FileTransfer extends EventEmitter<FileTransferEventMap> {
 	private _authHandler: MessageHandlerMiddleware;
 	private _storage: Storage;
 	private _files?: FileList;
+	private _fileStorage: FileStorage;
 	private _RTCPeerConnections: Map<string, RTCPeerConnection> = new Map();
 	private _activeFileTransferChannels: Map<string, RTCDataChannel> = new Map();
-	private _activeFileProgressChannels: Map<string, RTCDataChannel> = new Map();
 	private _sessionEventHandler: EventEmitter<FileTransferEventMap> = new EventEmitter();
 	private _requestTimeoutIds: Map<string, ReturnType<typeof setTimeout>> = new Map();
 
 	private readonly ICE_SERVER_CACHE_KEY = 'file.iceServers';
+	private readonly ICE_RESTART_LIMIT = 2;
 	private readonly FILE_CHUNK_SIZE = 16 * 1024; // 16KB
 	private readonly FILE_BUFFER_SIZE = 64 * 1024; // 64KB
 	private readonly FILE_MAX_CONCURRENT = 3;
@@ -108,8 +116,9 @@ export class FileTransfer extends EventEmitter<FileTransferEventMap> {
 			timeoutTimer = setTimeout(() => {
 				this.emit(
 					FileTransferEvents.FILE_TRANSFER_ERROR,
+					new Error('File transfer timed out'),
 					fileName,
-					new Error('File transfer timed out')
+					clientId
 				);
 				channelClosedByError = true;
 				dataChannel.close();
@@ -122,36 +131,37 @@ export class FileTransfer extends EventEmitter<FileTransferEventMap> {
 
 		dataChannel.onmessage = (msgEvent) => {
 			refreshTimeout();
-			this.emit(FileTransferEvents.FILE_RECEIVED_CHUNK, fileName, msgEvent.data);
+			this.emit(FileTransferEvents.FILE_RECEIVED_CHUNK, msgEvent.data, fileName, clientId);
 
 			// Send progress updates
 			bytesReceived += msgEvent.data.byteLength;
-			this.emit(FileTransferEvents.FILE_TRANSFER_PROGRESS, fileName, bytesReceived);
+			this.emit(FileTransferEvents.FILE_TRANSFER_PROGRESS, bytesReceived, fileName, clientId);
 		};
 
 		dataChannel.onopen = () => {
 			clearTimeout(this._requestTimeoutIds.get(key));
 			this._requestTimeoutIds.delete(key);
-			this.emit(FileTransferEvents.FILE_TRANSFER_OPENED, fileName);
+			this.emit(FileTransferEvents.FILE_TRANSFER_OPENED, fileName, clientId);
 		};
 
 		dataChannel.onclose = () => {
 			clearTimeout(timeoutTimer);
 			this._activeFileTransferChannels.delete(key);
 			if (!channelClosedByError) {
-				this.emit(FileTransferEvents.FILE_TRANSFER_COMPLETED, fileName);
+				this.emit(FileTransferEvents.FILE_TRANSFER_COMPLETED, fileName, clientId);
 			}
 		};
 
 		dataChannel.onerror = (errev) => {
 			clearTimeout(timeoutTimer);
-			this.emit(FileTransferEvents.FILE_TRANSFER_ERROR, fileName, errev.error);
+			this.emit(FileTransferEvents.FILE_TRANSFER_ERROR, errev.error, fileName, clientId);
 			this._activeFileTransferChannels.delete(key);
-			this._activeFileProgressChannels.get(key)?.close();
 		};
 	};
 
 	private async _createRTCPeerConnection(clientId: string): Promise<RTCPeerConnection> {
+		let restartAttempts = 0;
+
 		const peerConnection = new RTCPeerConnection({
 			iceServers: await this._getICEServers()
 		});
@@ -183,15 +193,25 @@ export class FileTransfer extends EventEmitter<FileTransferEventMap> {
 		};
 		peerConnection.oniceconnectionstatechange = () => {
 			if (peerConnection.iceConnectionState === 'failed') {
-				console.info(
-					`[RTCPeerConnection] ICE connection state with ${clientId} is 'failed', restarting ICE...`
-				);
-				peerConnection.restartIce();
+				restartAttempts++;
+				if (restartAttempts <= this.ICE_RESTART_LIMIT) {
+					console.info(
+						`[RTCPeerConnection] ICE connection state with ${clientId} is 'failed', restarting ICE...`
+					);
+					peerConnection.restartIce();
+				} else {
+					peerConnection.close();
+				}
 			}
 		};
 
 		peerConnection.onconnectionstatechange = () => {
-			if (['closed', 'failed'].includes(peerConnection.connectionState)) {
+			this.emit(
+				FileTransferEvents.FILE_TRANSFER_CONNECTION_STATE,
+				peerConnection.connectionState,
+				clientId
+			);
+			if (['closed'].includes(peerConnection.connectionState)) {
 				console.info(
 					`[RTCPeerConnection] Connection state with ${clientId} is '${peerConnection.connectionState}', cleaning up...`
 				);
@@ -221,18 +241,25 @@ export class FileTransfer extends EventEmitter<FileTransferEventMap> {
 		return this._RTCPeerConnections.get(clientId)!;
 	}
 
-	private async _transferFile(file: File, peerConnection: RTCPeerConnection) {
+	private _resetRTCPeerConnection(clientId: string): void {
+		const existingConnection = this._RTCPeerConnections.get(clientId);
+		if (existingConnection) {
+			existingConnection.close();
+			this._RTCPeerConnections.delete(clientId);
+		}
+	}
+
+	private async _transferFile(file: File, clientId: string, peerConnection: RTCPeerConnection) {
 		return new Promise<void>((resolve, reject) => {
 			// Create data channel for file transfer
 			const dataChannel = peerConnection.createDataChannel(`file-transfer:${file.name}`);
 			dataChannel.binaryType = 'arraybuffer';
-			// set a sensible low threshold so we can use bufferedamountlow as backpressure signal
-			dataChannel.bufferedAmountLowThreshold = this.FILE_BUFFER_SIZE / 2;
+			dataChannel.bufferedAmountLowThreshold = this.FILE_BUFFER_SIZE;
 
 			const fileReader = new FileReader();
 			let fileTransferComplete = false;
 			dataChannel.onopen = async () => {
-				this.emit(FileTransferEvents.FILE_TRANSFER_OPENED, file.name);
+				this.emit(FileTransferEvents.FILE_TRANSFER_OPENED, file.name, clientId);
 
 				const readChunk = (o: number) => {
 					return new Promise<ArrayBuffer>((resolve) => {
@@ -287,7 +314,7 @@ export class FileTransfer extends EventEmitter<FileTransferEventMap> {
 							const chunk = await readChunk(offset);
 							offset += chunk.byteLength;
 							dataChannel.send(chunk);
-							this.emit(FileTransferEvents.FILE_TRANSFER_PROGRESS, file.name, offset);
+							this.emit(FileTransferEvents.FILE_TRANSFER_PROGRESS, offset, file.name, clientId);
 						} catch (error) {
 							reject(error);
 							return;
@@ -301,7 +328,7 @@ export class FileTransfer extends EventEmitter<FileTransferEventMap> {
 
 					if (offset >= file.size) {
 						fileTransferComplete = true;
-						this.emit(FileTransferEvents.FILE_TRANSFER_COMPLETED, file.name);
+						this.emit(FileTransferEvents.FILE_TRANSFER_COMPLETED, file.name, clientId);
 						dataChannel.close();
 					}
 				};
@@ -325,15 +352,15 @@ export class FileTransfer extends EventEmitter<FileTransferEventMap> {
 		});
 	}
 
-	private async _transferFiles(files: File[], peerConnection: RTCPeerConnection) {
+	private async _transferFiles(files: File[], clientId: string, peerConnection: RTCPeerConnection) {
 		const fileTransferQueue: File[] = files.slice();
 		const transferNextFile = async () => {
 			if (fileTransferQueue.length === 0) return;
 			const file = fileTransferQueue.shift()!;
 			try {
-				await this._transferFile(file, peerConnection);
+				await this._transferFile(file, clientId, peerConnection);
 			} catch (error) {
-				this.emit(FileTransferEvents.FILE_TRANSFER_ERROR, file.name, error as Error);
+				this.emit(FileTransferEvents.FILE_TRANSFER_ERROR, error as Error, file.name, clientId);
 			} finally {
 				// Start next file transfer
 				await transferNextFile();
@@ -401,22 +428,14 @@ export class FileTransfer extends EventEmitter<FileTransferEventMap> {
 		}
 	};
 
-	private _handleTransferRequest = async (message: MessagePacket<TransferRequestData>) => {
+	private _handleReceiveRequest = async (message: MessagePacket<FileReceiveRequestData>) => {
 		if (!this._files) {
 			console.warn('Client requested file transfer but no transfer files are set.');
 			return;
 		}
 
 		try {
-			if (message.data.refreshConnection) {
-				// Force new connection by closing any existing ones
-				// Usually in response to transfer errors
-				const existingConnection = this._RTCPeerConnections.get(message.clientId);
-				if (existingConnection) {
-					existingConnection.close();
-					this._RTCPeerConnections.delete(message.clientId);
-				}
-			}
+			this._resetRTCPeerConnection(message.clientId);
 
 			const peerConnection = await this._getRTCPeerConnection(message.clientId);
 			const offer = await peerConnection.createOffer();
@@ -442,25 +461,97 @@ export class FileTransfer extends EventEmitter<FileTransferEventMap> {
 				return;
 			}
 
-			this._transferFiles(filesToTransfer, peerConnection);
+			this._transferFiles(filesToTransfer, message.clientId, peerConnection);
 		} catch (error) {
 			console.warn('Error handling file transfer request:', error);
+		}
+	};
+
+	/**
+	 * Set up to receive files from remote client, then request em.
+	 * @param message
+	 */
+	private _handleSendRequest = async (message: MessagePacket<FileSendRequestData>) => {
+		try {
+			const { clientId } = message;
+			const { files } = message.data;
+			const fileWriters = new Map<string, WritableStreamDefaultWriter<ArrayBuffer>>();
+			const { fileIds } = await this._fileStorage.createFiles(
+				files.map((file) => ({
+					name: file.name,
+					size: file.size,
+					type: file.type,
+					createdAt: Date.now(),
+					clientId
+				}))
+			);
+			fileIds.forEach((fileId, index) => {
+				const writable = this._fileStorage.writeFileData(fileId);
+				const writer = writable.getWriter();
+				fileWriters.set(files[index].name, writer);
+			});
+
+			const fileTransferChunkReceived = (
+				chunk: ArrayBuffer,
+				fileName: string,
+				fromClientId: string
+			) => {
+				if (fromClientId === clientId) {
+					try {
+						const writer = fileWriters.get(fileName);
+						if (writer) writer.write(chunk);
+					} catch {
+						// If we fail to write for whatever reason immediately close the channel so the sender can retry.
+						const activeChannel = this._activeFileTransferChannels.get(`${clientId}-${fileName}`);
+						if (activeChannel) {
+							activeChannel.close();
+						}
+					}
+				}
+			};
+
+			const fileTransferComplete = (fileName: string, fromClientId: string) => {
+				if (fromClientId === clientId) {
+					const writer = fileWriters.get(fileName);
+					if (writer) {
+						writer.close();
+						fileWriters.delete(fileName);
+					}
+
+					this.off(FileTransferEvents.FILE_RECEIVED_CHUNK, fileTransferChunkReceived);
+					this.off(FileTransferEvents.FILE_TRANSFER_COMPLETED, fileTransferComplete);
+				}
+			};
+
+			this.on(FileTransferEvents.FILE_RECEIVED_CHUNK, fileTransferChunkReceived);
+			this.on(FileTransferEvents.FILE_TRANSFER_COMPLETED, fileTransferComplete);
+
+			this.requestFilesFromClient(
+				message.clientId,
+				message.data.files.map((file) => file.name),
+				message.authentication
+			);
+		} catch (error) {
+			console.error(`Error handling file receival from client ${message.clientId}:`, error);
 		}
 	};
 
 	constructor({
 		messageHandler,
 		authHandler,
+		fileStorage,
 		storage = globalThis.localStorage ?? poxyStorage
 	}: {
 		messageHandler: MessageHandler;
 		authHandler: MessageHandlerMiddleware;
+		fileStorage: FileStorage;
 		storage?: Storage;
 	}) {
 		super();
 
 		this._messageHandler = messageHandler;
 		this._authHandler = authHandler;
+		this._fileStorage = fileStorage;
 		this._storage = storage;
 
 		this._messageHandler.handleMessage<undefined>(
@@ -487,16 +578,26 @@ export class FileTransfer extends EventEmitter<FileTransferEventMap> {
 			this._handleRtcIceCandidate.bind(this)
 		);
 
-		this._messageHandler.handleMessage<TransferRequestData>(
-			FileMessageTypes.TRANSFER_REQUEST,
+		this._messageHandler.handleMessage<FileReceiveRequestData>(
+			FileMessageTypes.RECEIVE_REQUEST,
 			this._authHandler,
-			this._handleTransferRequest.bind(this)
+			this._handleReceiveRequest.bind(this)
+		);
+
+		this._messageHandler.handleMessage<FileSendRequestData>(
+			FileMessageTypes.SEND_REQUEST,
+			this._authHandler,
+			this._handleSendRequest.bind(this)
 		);
 
 		this.on(EventEmitter.ALL, (event, ...args) => {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			this._sessionEventHandler.emit(event as keyof FileTransferEventMap, ...(args as any));
 		});
+	}
+
+	destroy(): void {
+		this.removeAllListeners();
 	}
 
 	/**
@@ -543,25 +644,13 @@ export class FileTransfer extends EventEmitter<FileTransferEventMap> {
 	}
 
 	/**
-	 * Request the remote client to open data channels for file transfer.
+	 * Request the remote client to begin sending files to this client.
 	 * @param targetClientId
 	 * @param files - List of file names to request
 	 * @param authToken
-	 * @param refreshConnection - Instruct the remote client to refresh the RTC connection
 	 */
-	requestFileTransfer(
-		targetClientId: string,
-		files: string[],
-		authToken?: string,
-		refreshConnection = false
-	): void {
-		if (refreshConnection) {
-			const existingConnection = this._RTCPeerConnections.get(targetClientId);
-			if (existingConnection) {
-				existingConnection.close();
-				this._RTCPeerConnections.delete(targetClientId);
-			}
-		}
+	requestFilesFromClient(targetClientId: string, files: string[], authToken?: string): void {
+		this._resetRTCPeerConnection(targetClientId);
 
 		files.forEach((fileName) => {
 			const key = `${targetClientId}-${fileName}`;
@@ -575,8 +664,9 @@ export class FileTransfer extends EventEmitter<FileTransferEventMap> {
 			const timeoutId = setTimeout(() => {
 				this.emit(
 					FileTransferEvents.FILE_TRANSFER_ERROR,
+					new Error('File transfer request timed out'),
 					fileName,
-					new Error('File transfer request timed out')
+					targetClientId
 				);
 				this._requestTimeoutIds.delete(key);
 			}, this.FILE_TRANSFER_TIMEOUT);
@@ -584,14 +674,55 @@ export class FileTransfer extends EventEmitter<FileTransferEventMap> {
 			this._requestTimeoutIds.set(key, timeoutId);
 		});
 
-		this._messageHandler.send<TransferRequestData>({
-			type: FileMessageTypes.TRANSFER_REQUEST,
+		this._messageHandler.send<FileReceiveRequestData>({
+			type: FileMessageTypes.RECEIVE_REQUEST,
 			clientId: targetClientId,
 			authentication: authToken,
 			data: {
-				files,
-				refreshConnection
+				files
 			}
 		});
+	}
+
+	/**
+	 * Requests the remote client to receive files from this client.
+	 * Confusing yes, we're telling the remote client to prepare to receive files we want to send it.
+	 * It is expected to then send a receive request when ready.
+	 * @param targetClientId
+	 * @param files
+	 * @param authToken
+	 * @param refreshConnection
+	 */
+	async sendFilesToClient(
+		targetClientId: string,
+		files: string[],
+		authToken?: string
+	): Promise<void> {
+		if (this._files?.length === 0) {
+			throw new Error('No files set for transfer. Use setTransferFiles() first.');
+		}
+
+		const filesToTransfer = Array.from(this._files!).filter((file) => files.includes(file.name));
+		if (filesToTransfer.length === 0) {
+			throw new Error('None of the specified files are available for transfer.');
+		}
+
+		this._messageHandler.send<FileSendRequestData>({
+			type: FileMessageTypes.SEND_REQUEST,
+			clientId: targetClientId,
+			authentication: authToken,
+			data: {
+				files: filesToTransfer.map((file) => ({
+					name: file.name,
+					size: file.size,
+					type: file.type
+				}))
+			}
+		});
+
+		await this._messageHandler.waitForMessage<FileReceiveRequestData>(
+			FileMessageTypes.RECEIVE_REQUEST,
+			(message) => message.clientId === targetClientId
+		);
 	}
 }

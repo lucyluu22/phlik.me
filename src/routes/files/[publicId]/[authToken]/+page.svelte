@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { getLocalClient } from '$lib/models/LocalClient';
-	import { type FileData, FileTransferEvents } from '$lib/models/FileTransfer';
+	import { FileTransferEvents } from '$lib/models/FileTransfer';
 	import { throttle } from '$lib/utils/throttle';
 	import Progress from '$lib/components/Progress.svelte';
 	import FileList, {
@@ -37,7 +37,7 @@
 		fileListState.some((file) => !file.status || file.status === STATUS_ERROR)
 	);
 
-	fileTransferSession.on(FileTransferEvents.FILE_TRANSFER_ERROR, (fileName) => {
+	fileTransferSession.on(FileTransferEvents.FILE_TRANSFER_ERROR, (error, fileName) => {
 		const file = files.get(fileName)!;
 		fileListState[file.index].status = STATUS_ERROR;
 		fileListState[file.index].bytesTransferred = 0;
@@ -55,7 +55,7 @@
 		fileListState[file.index].status = STATUS_COMPLETED;
 	});
 
-	fileTransferSession.on(FileTransferEvents.FILE_RECEIVED_CHUNK, (fileName, byteArray) => {
+	fileTransferSession.on(FileTransferEvents.FILE_RECEIVED_CHUNK, (byteArray, fileName) => {
 		const file = files.get(fileName);
 		if (!file) {
 			console.warn('Received chunk for unknown file:', fileName);
@@ -69,14 +69,8 @@
 
 	const transferFile = (fileName: string) => {
 		const file = fileListState[files.get(fileName)!.index];
-		const refreshConnection = file.status === STATUS_ERROR;
 		file.status = STATUS_REQUESTING;
-		fileTransfer.requestFileTransfer(
-			params.publicId,
-			[fileName],
-			params.authToken,
-			refreshConnection
-		);
+		fileTransfer.requestFilesFromClient(params.publicId, [fileName], params.authToken);
 	};
 
 	const transferAll = async () => {
@@ -89,12 +83,7 @@
 				file.status = STATUS_REQUESTING;
 			}
 		});
-		fileTransfer.requestFileTransfer(
-			params.publicId,
-			filesToTransfer,
-			params.authToken,
-			refreshConnection
-		);
+		fileTransfer.requestFilesFromClient(params.publicId, filesToTransfer, params.authToken);
 	};
 
 	const saveFile = (fileName: string) => {
@@ -149,7 +138,7 @@
 				// Since we throttle the progress updates we need a dedicated one for each file
 				fileTransferSession.on(
 					FileTransferEvents.FILE_TRANSFER_PROGRESS,
-					throttle((fileName: string, bytesReceived: number) => {
+					throttle((bytesReceived: number, fileName: string) => {
 						if (fileName === file.name) {
 							fileListState[index].bytesTransferred = bytesReceived;
 						}
