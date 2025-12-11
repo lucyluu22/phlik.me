@@ -13,7 +13,9 @@ export interface FileMetaData {
  * Persisted file storage for clients.
  */
 export interface FileStorage {
-	createFiles(data: FileMetaData[]): Promise<{ fileIds: string[] }>;
+	createFiles(
+		data: Pick<FileMetaData, 'name' | 'size' | 'type' | 'createdAt' | 'clientId'>[]
+	): Promise<{ fileIds: string[] }>;
 	listFiles(): Promise<(FileMetaData & { fileId: string })[]>;
 	writeFileData(fileId: string): WritableStream<ArrayBuffer>;
 	readFileData(fileId: string): ReadableStream<ArrayBuffer> | null;
@@ -92,7 +94,9 @@ export class IndexedDBFileStorage implements FileStorage {
 		};
 	}
 
-	createFiles(files: FileMetaData[]): Promise<{ fileIds: string[] }> {
+	createFiles(
+		files: Pick<FileMetaData, 'name' | 'size' | 'type' | 'createdAt' | 'clientId'>[]
+	): Promise<{ fileIds: string[] }> {
 		return new Promise((resolve, reject) => {
 			const request = indexedDB.open(this._dbName);
 			request.onsuccess = () => {

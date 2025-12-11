@@ -1,3 +1,8 @@
+<script module>
+	declare const __APP_VERSION__: string;
+	declare const __GIT_REPO_URL__: string;
+</script>
+
 <script lang="ts">
 	import '$lib/styles/theme.css';
 	import '$lib/styles/icons.css';
@@ -33,13 +38,23 @@
 <Toast />
 <header>
 	<hgroup>
-		<h1 style="--logo: url({logo});">Phlick Me</h1>
+		<a href="/" title="Phlick Me">
+			<h1 style="--logo: url({logo});">Phlick Me</h1>
+		</a>
 		<p>A phully anonymous file sharing service.</p>
 	</hgroup>
 </header>
 <main>
 	{@render children()}
 </main>
+<footer>
+	<p>
+		<abbr title="Version">v</abbr>{__APP_VERSION__} |
+		<a href={__GIT_REPO_URL__} target="_blank">
+			<span class="icon icon-inline icon--github"></span> GitHub
+		</a>
+	</p>
+</footer>
 
 <style>
 	header {
@@ -59,9 +74,15 @@
 		text-align: center;
 	}
 
-	header h1 {
+	header a {
+		display: block;
 		flex: 1;
+		text-decoration: none;
+	}
+
+	header h1 {
 		width: 100%;
+		height: 100%;
 		margin: 0;
 		padding: 0;
 		color: transparent;
@@ -89,5 +110,22 @@
 		display: flex;
 		flex-direction: column;
 		text-align: center;
+	}
+
+	footer {
+		position: absolute;
+		top: 0;
+		left: 0;
+	}
+
+	footer p {
+		margin: 0;
+		padding: var(--spacing-unit);
+		font-weight: bold;
+	}
+
+	footer a {
+		text-decoration: none;
+		color: inherit;
 	}
 </style>

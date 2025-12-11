@@ -1,7 +1,11 @@
 {
 	"name": "phlick-me",
 	"private": true,
-	"version": "0.0.1",
+	"version": "1.0.0",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/lucyluu22/phlick.me"
+	},
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev --host",

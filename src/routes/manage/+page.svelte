@@ -58,7 +58,7 @@
 {/if}
 <p><strong>OR</strong></p>
 <a href="manage/link" class="button">
-	<span class="icon icon-inline icon--link"></span>
+	<span class="icon icon--link"></span>
 	Generate Link Code
 </a>
 

@@ -23,13 +23,13 @@
 <Menu>
 	<MenuItem>
 		<a class="button" href="/send" title="Upload files to another client">
-			<span class="icon icon-inline icon--upload"></span>
+			<span class="icon icon--upload"></span>
 			Send Files
 		</a>
 	</MenuItem>
 	<MenuItem>
 		<a class="button" href="/files" title="View files sent to this client">
-			<span class="icon icon-inline icon--file"></span>
+			<span class="icon icon--file"></span>
 			View Files
 			{#if fileCount > 0}
 				<span class="file-count-badge">{fileCount}</span>
@@ -39,7 +39,7 @@
 	<MenuItem separator />
 	<MenuItem>
 		<a class="button" href="/manage" title="Manage connected clients">
-			<span class="icon icon-inline icon--link"></span>
+			<span class="icon icon--link"></span>
 			Connected Clients
 		</a>
 	</MenuItem>

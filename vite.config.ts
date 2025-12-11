@@ -1,8 +1,13 @@
 import { defineConfig } from 'vitest/config';
 import { sveltekit } from '@sveltejs/kit/vite';
+import packageJson from './package.json' with { type: 'json' };
 
 export default defineConfig({
 	plugins: [sveltekit()],
+	define: {
+		__APP_VERSION__: JSON.stringify(packageJson.version),
+		__GIT_REPO_URL__: JSON.stringify(packageJson.repository.url)
+	},
 	test: {
 		expect: { requireAssertions: true },
 		projects: [
