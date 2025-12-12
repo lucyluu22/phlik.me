@@ -7,6 +7,7 @@
 	import Button from '$lib/components/Button.svelte';
 	import Menu from '$lib/components/Menu.svelte';
 	import MenuItem from '$lib/components/MenuItem.svelte';
+	import Separator from '$lib/components/Separator.svelte';
 	import { showToast, Context } from '$lib/components/Toast.svelte';
 	import type { PageProps } from './$types';
 
@@ -92,6 +93,8 @@
 		{/if}
 	</MenuItem>
 </Menu>
+<Separator />
+<a href="/manage" class="button">Done</a>
 
 <style>
 	.confirm-disconnect-buttons {

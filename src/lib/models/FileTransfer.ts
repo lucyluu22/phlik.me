@@ -520,11 +520,27 @@ export class FileTransfer extends EventEmitter<FileTransferEventMap> {
 
 					this.off(FileTransferEvents.FILE_RECEIVED_CHUNK, fileTransferChunkReceived);
 					this.off(FileTransferEvents.FILE_TRANSFER_COMPLETED, fileTransferComplete);
+					this.off(FileTransferEvents.FILE_TRANSFER_ERROR, fileTransferError);
+				}
+			};
+
+			const fileTransferError = (error: Error, fileName: string, fromClientId: string) => {
+				if (fromClientId === clientId) {
+					const writer = fileWriters.get(fileName);
+					if (writer) {
+						writer.abort(error);
+						fileWriters.delete(fileName);
+					}
+
+					this.off(FileTransferEvents.FILE_RECEIVED_CHUNK, fileTransferChunkReceived);
+					this.off(FileTransferEvents.FILE_TRANSFER_COMPLETED, fileTransferComplete);
+					this.off(FileTransferEvents.FILE_TRANSFER_ERROR, fileTransferError);
 				}
 			};
 
 			this.on(FileTransferEvents.FILE_RECEIVED_CHUNK, fileTransferChunkReceived);
 			this.on(FileTransferEvents.FILE_TRANSFER_COMPLETED, fileTransferComplete);
+			this.on(FileTransferEvents.FILE_TRANSFER_ERROR, fileTransferError);
 
 			this.requestFilesFromClient(
 				message.clientId,
@@ -724,5 +740,16 @@ export class FileTransfer extends EventEmitter<FileTransferEventMap> {
 			FileMessageTypes.RECEIVE_REQUEST,
 			(message) => message.clientId === targetClientId
 		);
+	}
+
+	/**
+	 * Close connection with client, any ongoing transfers will be aborted.
+	 * @param clientId
+	 */
+	closeConnection(clientId: string): void {
+		const connection = this._RTCPeerConnections.get(clientId);
+		if (connection) {
+			connection.close();
+		}
 	}
 }

@@ -245,6 +245,9 @@ export class IndexedDBFileStorage implements FileStorage {
 				},
 				close: async () => {
 					await commitChunks(true);
+				},
+				abort: async () => {
+					this.deleteFiles([fileId]).catch(() => {});
 				}
 			},
 			{

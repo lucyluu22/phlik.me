@@ -1,8 +1,10 @@
 <script lang="ts">
 	import type { EventHandler } from 'svelte/elements';
+	import { ContextClass } from '$lib/styles/Context';
 	import { getLocalClient } from '$lib/models/LocalClient';
 	import { FileTransferEvents } from '$lib/models/FileTransfer';
 	import Button from '$lib/components/Button.svelte';
+	import Separator from '$lib/components/Separator.svelte';
 	import Progress from '$lib/components/Progress.svelte';
 	import FileList, {
 		type FileListItem,
@@ -12,6 +14,7 @@
 	} from '$lib/components/FileList.svelte';
 	import FileInput from '$lib/components/FileInput.svelte';
 	import { throttle } from '$lib/utils/throttle';
+	import { onNavigate } from '$app/navigation';
 	import type { PageProps } from './$types';
 
 	interface TransferProgressProps {
@@ -164,6 +167,10 @@
 			clientConnectionError = true;
 		}
 	};
+
+	onNavigate(() => {
+		fileTransfer.closeConnection(params.clientId);
+	});
 </script>
 
 {#snippet clientIcon()}
@@ -205,23 +212,29 @@
 		Select Files
 	</FileInput>
 	<p>Once you select files, the transfer will begin.</p>
+	<Separator />
+	<a href="/" class="button">Cancel</a>
 {:else if clientConnectionError}
 	<p>Connection to client failed. Make sure the receiver has phlick.me open.</p>
 	<Button onclick={retrySend}>
 		<span class="icon icon--refresh"></span>
 		Retry
 	</Button>
+	<Separator />
+	<a href="/" class="button">Cancel</a>
 {:else}
 	<h2>Files</h2>
 	<FileList files={fileListState} />
+	<Separator />
 	{#if showRetryButton}
 		<Button onclick={retrySend}>
 			<span class="icon icon--refresh"></span>
 			Retry Failed Transfers
 		</Button>
-	{/if}
-	{#if showDoneButton}
+	{:else if showDoneButton}
 		<a class="button" href="/">Done</a>
+	{:else}
+		<a href="/" class={['button', ContextClass.danger]}>Cancel</a>
 	{/if}
 {/if}
 

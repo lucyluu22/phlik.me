@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Button from '$lib/components/Button.svelte';
 	import Progress from '$lib/components/Progress.svelte';
+	import Separator from '$lib/components/Separator.svelte';
 	import { getLocalClient, LocalClientEvents } from '$lib/models/LocalClient';
 	import { showToast, Context } from '$lib/components/Toast.svelte';
 	import { onMount } from 'svelte';
@@ -55,12 +56,15 @@
 			<h2>Error Generating Link Code</h2>
 		{:else}
 			<h2>Your Link Code</h2>
-			<button type="button" class="link-code" title="Copy" onclick={copyLinkCode}>{linkCode}</button
-			>
+			<button type="button" class="link-code" title="Copy" onclick={copyLinkCode}>
+				{linkCode}
+			</button>
 			<p>
 				Enter this generated code on the client you wish to connect with. It only works once and has
 				a short expiration time.
 			</p>
+			<Separator />
+			<a href="/" class="button">Done</a>
 		{/if}
 	{/if}
 </output>

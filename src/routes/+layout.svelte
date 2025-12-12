@@ -12,6 +12,9 @@
 	import { getLocalClient, LocalClientEvents } from '$lib/models/LocalClient';
 	import Toast, { showToast, Context } from '$lib/components/Toast.svelte';
 	import favicon from '$lib/assets/favicon.svg';
+	import faviconIco from '$lib/assets/favicon.ico';
+	import faviconPng from '$lib/assets/favicon-96x96.png';
+	import appleTouchIcon from '$lib/assets/apple-touch-icon.png';
 	import logo from '$lib/assets/logo.svg';
 	import { onMount } from 'svelte';
 
@@ -30,7 +33,11 @@
 </script>
 
 <svelte:head>
-	<link rel="icon" href={favicon} />
+	<link rel="icon" type="image/png" href={faviconPng} sizes="96x96" />
+	<link rel="icon" type="image/svg+xml" href={favicon} />
+	<link rel="shortcut icon" href={faviconIco} />
+	<link rel="apple-touch-icon" sizes="180x180" href={appleTouchIcon} />
+	<meta name="apple-mobile-web-app-title" content="Phlick.me" />
 	<title>phlick.me</title>
 	<meta name="description" content="A phully anonymous file sharing service." />
 </svelte:head>
@@ -104,9 +111,6 @@
 	}
 
 	main {
-		width: 100%;
-		max-width: 600px;
-		margin: 0 auto;
 		display: flex;
 		flex-direction: column;
 		text-align: center;

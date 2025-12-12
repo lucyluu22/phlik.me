@@ -9,7 +9,7 @@
 <style>
 	button,
 	:global(.button) {
-		display: inline-flex;
+		display: flex;
 		align-items: center;
 		justify-content: center;
 		gap: var(--spacing-unit);
@@ -45,13 +45,16 @@
 		pointer-events: none;
 	}
 
-	button:global(.context--danger) {
+	button:global(.context--danger),
+	:global(.button.context--danger) {
 		border-color: var(--color-danger);
 		color: var(--color-danger);
 	}
 
 	button:global(.context--danger):hover,
-	button:global(.context--danger):focus {
+	:global(.button.context--danger):hover,
+	button:global(.context--danger):focus,
+	:global(.button.context--danger):focus {
 		background-color: var(--color-danger);
 		color: var(--color-on-danger);
 	}

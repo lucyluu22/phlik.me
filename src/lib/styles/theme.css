@@ -43,7 +43,10 @@
 }
 
 body {
-	margin: 0;
+	position: relative;
+	width: 100%;
+	max-width: 768px;
+	margin: 0 auto;
 	padding: var(--spacing-unit);
 	font-family: var(--font-family);
 	background-color: var(--color-primary);

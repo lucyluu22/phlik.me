@@ -6,6 +6,7 @@
 	import { FileTransferEvents } from '$lib/models/FileTransfer';
 	import Progress from '$lib/components/Progress.svelte';
 	import { showToast } from '$lib/components/Toast.svelte';
+	import Separator from '$lib/components/Separator.svelte';
 	import FileList, {
 		type FileListItem,
 		STATUS_TRANSFERRING,
@@ -25,10 +26,12 @@
 	const fileTransfer = localClient.getFileTransfer();
 	const fileTransferSession = fileTransfer.createSessionHandler();
 	const fileListState = $state<FileListItem[]>([]);
+	const transferringClients = new Set<string>();
 
 	let link = $state<string>('');
 
-	fileTransferSession.on(FileTransferEvents.FILE_TRANSFER_OPENED, (fileName) => {
+	fileTransferSession.on(FileTransferEvents.FILE_TRANSFER_OPENED, (fileName, clientId) => {
+		transferringClients.add(clientId);
 		fileListState.find((file) => file.name === fileName)!.status = STATUS_TRANSFERRING;
 	});
 
@@ -112,6 +115,9 @@
 	});
 
 	onNavigate(() => {
+		for (const clientId of transferringClients) {
+			fileTransfer.closeConnection(clientId);
+		}
 		if (link) {
 			localClient.disposePublicURLPath(link.split('/files/')[1]);
 		}
@@ -174,6 +180,12 @@
 <h2>Files</h2>
 {#if files}
 	<FileList files={fileListState} />
+{/if}
+<Separator />
+{#if fileListState.every((file) => file.status === STATUS_COMPLETED)}
+	<a href="/" class="button">Done</a>
+{:else}
+	<a href="/" class="button">Cancel</a>
 {/if}
 
 <style>

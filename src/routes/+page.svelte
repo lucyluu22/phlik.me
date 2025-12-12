@@ -36,11 +36,10 @@
 			{/if}
 		</a>
 	</MenuItem>
-	<MenuItem separator />
 	<MenuItem>
 		<a class="button" href="/manage" title="Manage connected clients">
-			<span class="icon icon--link"></span>
-			Connected Clients
+			<span class="icon icon--cog"></span>
+			Client Settings
 		</a>
 	</MenuItem>
 </Menu>

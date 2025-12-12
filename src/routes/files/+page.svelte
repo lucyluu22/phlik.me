@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { getLocalClient } from '$lib/models/LocalClient';
-	import FileList, { type FileListItem } from '$lib/components/FileList.svelte';
+	import FileList, { type FileListItem, STATUS_REQUESTING } from '$lib/components/FileList.svelte';
 	import { ContextClass } from '$lib/styles/Context';
 	import Button from '$lib/components/Button.svelte';
+	import Separator from '$lib/components/Separator.svelte';
 	import { showToast, Context } from '$lib/components/Toast.svelte';
 	import { onMount } from 'svelte';
 
@@ -32,6 +33,7 @@
 
 		const fileParts: ArrayBuffer[] = [];
 		const reader = fileDataReader.getReader();
+		file.status = STATUS_REQUESTING;
 		while (true) {
 			const { done, value } = await reader.read();
 			if (done) {
@@ -44,6 +46,7 @@
 				a.click();
 				document.body.removeChild(a);
 				URL.revokeObjectURL(url);
+				file.status = undefined;
 				break;
 			}
 			fileParts.push(value);
@@ -51,6 +54,7 @@
 	};
 
 	const deleteFile = async (file: StoredFile) => {
+		file.status = STATUS_REQUESTING;
 		await fileStorage.deleteFiles([file.id]);
 		files!.splice(
 			files!.findIndex((f) => f.id === file.id),
@@ -82,11 +86,20 @@
 	<h2>Received Files</h2>
 	<FileList {files} onSelectFile={(file) => saveFile(file as StoredFile)}>
 		{#snippet fileItemControls(file)}
-			<Button title="Save File" onclick={() => saveFile(file)}>
+			<Button
+				title="Save File"
+				disabled={file.status === STATUS_REQUESTING}
+				onclick={() => saveFile(file)}
+			>
 				<span class="icon icon--save"></span>
 				<span class="sr-only">Save File</span>
 			</Button>
-			<Button title="Delete File" class={ContextClass.danger} onclick={() => deleteFile(file)}>
+			<Button
+				title="Delete File"
+				disabled={file.status === STATUS_REQUESTING}
+				class={ContextClass.danger}
+				onclick={() => deleteFile(file)}
+			>
 				<span class="icon icon--trash"></span>
 				<span class="sr-only">Delete File</span>
 			</Button>
@@ -112,6 +125,5 @@
 	</div>
 	<p>Files sent to this client will be listed here.</p>
 {/if}
-
-<style>
-</style>
+<Separator />
+<a class="button" href="/">Done</a>
