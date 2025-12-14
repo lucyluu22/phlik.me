@@ -48,7 +48,7 @@
 		<a href="/" title="Phlick Me">
 			<h1 style="--logo: url({logo});">Phlick Me</h1>
 		</a>
-		<p>A phully anonymous file sharing service.</p>
+		<p>A Phully Anonymous File Sharing Service</p>
 	</hgroup>
 </header>
 <main>
