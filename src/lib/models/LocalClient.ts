@@ -1,4 +1,3 @@
-import * as Ably from 'Ably';
 import {
 	MessageHandler,
 	type MessagePacket,
@@ -6,6 +5,7 @@ import {
 } from './MessageHandler';
 import { FileTransfer } from './FileTransfer';
 import { type FileStorage, IndexedDBFileStorage, PoxyFileStorage } from './FileStorage';
+import { type PubSub, AblyPubSub } from './PubSub';
 import { EventEmitter } from '$lib/utils/EventEmitter';
 import { poxyStorage } from '$lib/utils/poxyStorage';
 
@@ -39,8 +39,7 @@ type LocalCLientEventMap = {
 export class LocalClient extends EventEmitter<LocalCLientEventMap> {
 	private _storage: Storage;
 	private _fetch: typeof globalThis.fetch;
-	private _AblySDK: typeof Ably;
-	private _ablyAuthURL: string;
+	private _pubSub: PubSub;
 	private _messageHandler: MessageHandler;
 	private _fileTransfer: FileTransfer;
 	private _fileStorage: FileStorage;
@@ -54,32 +53,10 @@ export class LocalClient extends EventEmitter<LocalCLientEventMap> {
 	private readonly _getConnectionKey: (publicId: string) => string = (publicId) =>
 		`client.connection:${publicId}`;
 
-	private _ablyClient?: Ably.Realtime;
-
-	private _setupAblyClient() {
-		if (!this._ablyClient) {
-			if (!this.isSetup()) {
-				throw new Error('Cannot setup Ably client before LocalClient is setup');
-			}
-
-			this._ablyClient = new this._AblySDK.Realtime({
-				authUrl: this._ablyAuthURL,
-				authMethod: 'POST',
-				authParams: {
-					privateId: this.getPrivateId()!
-				}
-			});
-
-			// Subscribe to incoming messages on this client's channel
-			this._ablyClient.channels.get(`client:${this.getPublicId()}`).subscribe((message) => {
-				this._messageHandler.receive({
-					type: message.name,
-					clientId: message.clientId,
-					authentication: message.data?.authentication,
-					data: message.data?.messagePacketData
-				} as MessagePacket);
-			});
-		}
+	private _subscribeToClientChannel() {
+		this._pubSub.subscribe(this.getPublicId()!, this.getPrivateId()!, (message) =>
+			this._messageHandler.receive(message)
+		);
 	}
 
 	private _getConnectionIds(): string[] {
@@ -96,20 +73,6 @@ export class LocalClient extends EventEmitter<LocalCLientEventMap> {
 		this._trustedClients.add(publicId);
 		this.emit(LocalClientEvents.clientConnected, { publicId, name: data.name });
 	}
-
-	private _sendMessage = (message: MessagePacket): void => {
-		if (!this._ablyClient) {
-			console.warn('Attempted to send message before Ably client is setup');
-			return;
-		}
-
-		// Publish the message to the target client's channel
-		const channel = this._ablyClient.channels.get(`client:${message.clientId}`);
-		channel.publish(message.type, {
-			authentication: message.authentication,
-			messagePacketData: message.data
-		});
-	};
 
 	private _authenticateMessage: MessageHandlerMiddleware = (message, next) => {
 		// If there's an authentication token, check it against ours
@@ -129,23 +92,24 @@ export class LocalClient extends EventEmitter<LocalCLientEventMap> {
 		console.warn(`Authentication failed for message from client: ${message.clientId}`);
 	};
 
-	constructor(
-		storage: Storage = globalThis.localStorage ?? poxyStorage,
-		fileStorage: FileStorage = globalThis.indexedDB
-			? new IndexedDBFileStorage()
-			: new PoxyFileStorage(),
-		fetch: typeof globalThis.fetch = globalThis.fetch,
-		ablyAuthUrl: string = '/api/v1/ably/auth',
-		ablySDK: typeof Ably = Ably
-	) {
+	constructor({
+		storage = globalThis.localStorage ?? poxyStorage,
+		fetch = globalThis.fetch,
+		pubSub = new AblyPubSub(),
+		fileStorage = globalThis.indexedDB ? new IndexedDBFileStorage() : new PoxyFileStorage()
+	}: {
+		storage?: Storage;
+		pubSub?: PubSub;
+		fileStorage?: FileStorage;
+		fetch?: typeof globalThis.fetch;
+	} = {}) {
 		super();
 
 		this._storage = storage;
 		this._fetch = fetch;
-		this._AblySDK = ablySDK;
-		this._ablyAuthURL = ablyAuthUrl;
+		this._pubSub = pubSub;
 		this._messageHandler = new MessageHandler({
-			send: this._sendMessage.bind(this)
+			send: (message) => this._pubSub.publish(message)
 		});
 		this._fileStorage = fileStorage;
 		this._fileTransfer = new FileTransfer({
@@ -192,13 +156,13 @@ export class LocalClient extends EventEmitter<LocalCLientEventMap> {
 		);
 
 		// Message handler for disconnection notifications
-		// When a client notifies us of disconnection, remove them from our connections too.
 		this._messageHandler.handleMessage(ClientMessageTypes.DISCONNECT, (message: MessagePacket) => {
+			// When a client notifies us of disconnection, remove them from our connections too.
 			this.disconnectClient(message.clientId, false);
 		});
 
 		if (this.isSetup()) {
-			this._setupAblyClient();
+			this._subscribeToClientChannel();
 		}
 
 		if (import.meta.hot) {
@@ -264,7 +228,7 @@ export class LocalClient extends EventEmitter<LocalCLientEventMap> {
 			this._storage.setItem(this._privateIdKey, privateId);
 			this._storage.setItem(this._connectionIdsKey, JSON.stringify([]));
 
-			this._setupAblyClient();
+			this._subscribeToClientChannel();
 		} else {
 			throw new Error(`Server responded with ${response.status}: ${response.statusText}`);
 		}

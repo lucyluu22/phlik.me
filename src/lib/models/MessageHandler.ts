@@ -2,7 +2,7 @@ import { EventEmitter } from '$lib/utils/EventEmitter';
 
 export type MessagePacket<Data = unknown> = {
 	type: string;
-	clientId: string; // Either sender or target client ID
+	clientId: string; // Either sender or target public ID
 	authentication?: string; // Optional authentication code for certain message types
 } & ([Data] extends [undefined] ? { data?: never } : { data: Data });
 
