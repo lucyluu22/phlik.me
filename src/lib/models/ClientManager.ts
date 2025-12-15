@@ -24,8 +24,19 @@ export class RedisClientManager implements ClientManager {
 		this._redis = redisClient;
 	}
 
+	/**
+	 * Generate a new public/private ID pair and store it in a redis hashmap.
+	 * If we *really* wanted to be secure we could store a hash of the private ID,
+	 * but it's overkill for this use case.
+	 * @returns
+	 */
 	async createClient(): Promise<ClientData> {
-		const [privateId, publicId] = [crypto.randomUUID(), crypto.randomUUID()];
+		const [privateId, publicId] = [
+			Array.from(crypto.getRandomValues(new Uint8Array(32)))
+				.map((a) => a.toString(36))
+				.join(''),
+			crypto.randomUUID()
+		];
 
 		await this._redis.hSet(`client:${privateId}`, {
 			publicId
