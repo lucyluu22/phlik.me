@@ -1,5 +1,5 @@
-<div style="text-align: center;">
-  <a href="phlick.me">
+<div align="center">
+  <a href="https://phlick.me" target="_blank">
   <img width="510" src="src/lib/assets/banner.png" alt="Phlick Me" />
   </a>
   <h1>Technical Documentation</h1>
