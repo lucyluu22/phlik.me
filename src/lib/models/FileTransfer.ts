@@ -104,7 +104,7 @@ export class FileTransfer extends EventEmitter<FileTransferEventMap> {
 		dataChannel: RTCDataChannel
 	) => {
 		let bytesReceived = 0;
-		let channelClosedByError = false;
+		let channelClosedByError: Error | null = null;
 		let timeoutTimer: ReturnType<typeof setTimeout>;
 
 		const key = `${clientId}-${fileName}`;
@@ -114,13 +114,7 @@ export class FileTransfer extends EventEmitter<FileTransferEventMap> {
 		const refreshTimeout = () => {
 			clearTimeout(timeoutTimer);
 			timeoutTimer = setTimeout(() => {
-				this.emit(
-					FileTransferEvents.FILE_TRANSFER_ERROR,
-					new Error('File transfer timed out'),
-					fileName,
-					clientId
-				);
-				channelClosedByError = true;
+				channelClosedByError = new Error('File transfer timed out');
 				dataChannel.close();
 			}, this.FILE_TRANSFER_TIMEOUT);
 		};
@@ -131,11 +125,15 @@ export class FileTransfer extends EventEmitter<FileTransferEventMap> {
 
 		dataChannel.onmessage = (msgEvent) => {
 			refreshTimeout();
-			this.emit(FileTransferEvents.FILE_RECEIVED_CHUNK, msgEvent.data, fileName, clientId);
-
-			// Send progress updates
-			bytesReceived += msgEvent.data.byteLength;
-			this.emit(FileTransferEvents.FILE_TRANSFER_PROGRESS, bytesReceived, fileName, clientId);
+			if (msgEvent.data instanceof ArrayBuffer) {
+				this.emit(FileTransferEvents.FILE_RECEIVED_CHUNK, msgEvent.data, fileName, clientId);
+				// Send progress updates
+				bytesReceived += msgEvent.data.byteLength;
+				this.emit(FileTransferEvents.FILE_TRANSFER_PROGRESS, bytesReceived, fileName, clientId);
+			} else {
+				// Anything other than ArrayBuffer is treated as an error signal from the sender.
+				channelClosedByError = new Error(msgEvent.data.toString());
+			}
 		};
 
 		dataChannel.onopen = () => {
@@ -149,6 +147,8 @@ export class FileTransfer extends EventEmitter<FileTransferEventMap> {
 			this._activeFileTransferChannels.delete(key);
 			if (!channelClosedByError) {
 				this.emit(FileTransferEvents.FILE_TRANSFER_COMPLETED, fileName, clientId);
+			} else {
+				this.emit(FileTransferEvents.FILE_TRANSFER_ERROR, channelClosedByError, fileName, clientId);
 			}
 		};
 
@@ -256,6 +256,8 @@ export class FileTransfer extends EventEmitter<FileTransferEventMap> {
 			dataChannel.binaryType = 'arraybuffer';
 			dataChannel.bufferedAmountLowThreshold = this.FILE_BUFFER_SIZE;
 
+			this._activeFileTransferChannels.set(`${clientId}-${file.name}`, dataChannel);
+
 			const fileReader = new FileReader();
 			let fileTransferComplete = false;
 			dataChannel.onopen = async () => {
@@ -334,6 +336,12 @@ export class FileTransfer extends EventEmitter<FileTransferEventMap> {
 				};
 
 				await bufferFile();
+			};
+
+			dataChannel.onmessage = (msgEvent) => {
+				// Any message from the receiver is treated as an error signal, close the channel.
+				reject(new Error(msgEvent.data.toString()));
+				dataChannel.close();
 			};
 
 			dataChannel.onclose = () => {
@@ -748,6 +756,13 @@ export class FileTransfer extends EventEmitter<FileTransferEventMap> {
 	 */
 	closeConnection(clientId: string): void {
 		const connection = this._RTCPeerConnections.get(clientId);
+		Array.from(this._activeFileTransferChannels.entries())
+			.filter(([key]) => key.startsWith(`${clientId}-`))
+			.forEach(([, channel]) => {
+				channel.send('Transfer Cancelled');
+				channel.close();
+			});
+
 		if (connection) {
 			connection.close();
 		}
