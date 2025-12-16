@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import Input from '$lib/components/Input.svelte';
 	import Button from '$lib/components/Button.svelte';
+	import Separator from '$lib/components/Separator.svelte';
 	import { showToast, Context } from '$lib/components/Toast.svelte';
 	import { getLocalClient } from '$lib/models/LocalClient';
 	import { onMount } from 'svelte';
@@ -36,9 +37,10 @@
 		{/snippet}
 	</Input>
 	<p id="client-name-help">
-		Call it whatever is meaningful to you. The name is only stored locally and shared when you link
-		another client.
+		A "client" represents this specific device, call it whatever is meaningful to you. The client
+		name is only stored locally and shared with other clients you link to.
 	</p>
+	<Separator />
 	<Button type="submit">Submit</Button>
 </form>
 
@@ -47,6 +49,6 @@
 		width: 100%;
 		display: flex;
 		flex-direction: column;
-		align-items: center;
+		align-items: stretch;
 	}
 </style>
