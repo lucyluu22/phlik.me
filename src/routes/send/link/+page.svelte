@@ -14,6 +14,7 @@
 		STATUS_ERROR
 	} from '$lib/components/FileList.svelte';
 	import { throttle } from '$lib/utils/throttle';
+	import { ContextClass } from '$lib/styles/Context';
 
 	interface TransferProgressProps {
 		value: number | undefined;
@@ -185,7 +186,7 @@
 {#if fileListState.every((file) => file.status === STATUS_COMPLETED)}
 	<a href="/" class="button">Done</a>
 {:else}
-	<a href="/" class="button">Cancel</a>
+	<a href="/" class={['button', ContextClass.danger]}>Cancel</a>
 {/if}
 
 <style>
