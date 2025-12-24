@@ -34,7 +34,7 @@ type LocalCLientEventMap = {
 
 /**
  * @class LocalClient
- * Singleton representing a local phlick.me client running in the browser.
+ * Singleton representing a local phlik.me client running in the browser.
  */
 export class LocalClient extends EventEmitter<LocalCLientEventMap> {
 	private _storage: Storage;

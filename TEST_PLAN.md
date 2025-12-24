@@ -1,8 +1,8 @@
-# Phlick.me - Comprehensive Test Plan
+# Phlik.me - Comprehensive Test Plan
 
 ## Application Overview
 
-Phlick.me is a browser-based peer-to-peer file sharing application that enables secure, anonymous file transfers between devices using WebRTC. The application features:
+Phlik.me is a browser-based peer-to-peer file sharing application that enables secure, anonymous file transfers between devices using WebRTC. The application features:
 
 - **Anonymous Client Setup**: No accounts required—clients are identified locally with user-defined names
 - **Two File Sharing Methods**:

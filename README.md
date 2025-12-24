@@ -1,5 +1,5 @@
 <div align="center">
-  <a href="https://phlick.me" target="_blank">
+  <a href="https://phlik.me" target="_blank">
   <img width="510" src="src/lib/assets/banner.png" alt="Phlick Me" />
   </a>
   <h1>Technical Documentation</h1>
@@ -7,7 +7,7 @@
 
 ## Description
 
-Phlick.me is a browser based P2P file sharing client utilising webRTC. It is intended to be a simple universal method to share files of any size across any kind of device. A typical use case would be sending photos from your phone to your PC, regardless of what OS the PC is running or what make of phone it is.
+Phlik.me is a browser based P2P file sharing client utilising webRTC. It is intended to be a simple universal method to share files of any size across any kind of device. A typical use case would be sending photos from your phone to your PC, regardless of what OS the PC is running or what make of phone it is.
 
 ## Design Principles
 

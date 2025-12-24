@@ -41,8 +41,8 @@
 	<link rel="icon" type="image/svg+xml" href={favicon} />
 	<link rel="shortcut icon" href={faviconIco} />
 	<link rel="apple-touch-icon" sizes="180x180" href={appleTouchIcon} />
-	<meta name="apple-mobile-web-app-title" content="Phlick.me" />
-	<title>phlick.me</title>
+	<meta name="apple-mobile-web-app-title" content="Phlik.me" />
+	<title>phlik.me</title>
 	<meta name="description" content="A phully anonymous file sharing service." />
 </svelte:head>
 

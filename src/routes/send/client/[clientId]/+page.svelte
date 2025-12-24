@@ -216,7 +216,7 @@
 	<a href="/" class="button">Cancel</a>
 {:else if clientConnectionError}
 	<p>
-		Client is not responding, make sure the receiver has <strong>phlick.me</strong> open and is connected
+		Client is not responding, make sure the receiver has <strong>phlik.me</strong> open and is connected
 		to the internet.
 	</p>
 	<Button onclick={retrySend}>
