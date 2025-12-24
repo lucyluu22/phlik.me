@@ -80,6 +80,7 @@
 			onbeforeinput={(event) => handleLinkCodeCharInput(event, index)}
 			data-char-index={index}
 			class="input--link-code-char"
+			aria-label={`Link code character ${index + 1}`}
 		/>
 	{/each}
 </fieldset>

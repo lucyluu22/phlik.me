@@ -25,10 +25,9 @@
 		files: FileListItemType[];
 		fileItemControls?: Snippet<[FileListItemType]>;
 		fileItemDetails?: Snippet<[FileListItemType]>;
-		onSelectFile?: (file: FileListItemType) => void;
 	}
 
-	const { files, fileItemControls, fileItemDetails, onSelectFile }: Props = $props();
+	const { files, fileItemControls, fileItemDetails }: Props = $props();
 	const expandable = !!fileItemDetails;
 
 	const expandState = new SvelteMap<number | string, boolean>();
@@ -67,6 +66,7 @@
 <ul class="file-list">
 	{#each files as file, index}
 		<li
+			aria-label={file.name}
 			class={{
 				'file-list__item': true,
 				'file-list__item--expanded': expandState.get(file.id ?? index)
@@ -76,8 +76,10 @@
 				<span class="file-list__header">
 					<button
 						class="file-list__select"
-						disabled={!onSelectFile}
-						onclick={() => onSelectFile?.(file)}
+						title="Show Details"
+						aria-label="Show Details"
+						disabled={!expandable}
+						onclick={() => expandState.set(file.id ?? index, !expandState.get(file.id ?? index))}
 					>
 						<span class={['file-list__icon', getFileTypeClass(file)]} title={file.type}>
 							<span class="sr-only">{file.type}</span>
@@ -91,17 +93,7 @@
 							{/if}
 						</span>
 					</button>
-					{#if expandable}
-						<span class="file-list__expand">
-							<Button
-								onclick={() =>
-									expandState.set(file.id ?? index, !expandState.get(file.id ?? index))}
-							>
-								<span class="icon icon--info"></span>
-							</Button>
-						</span>
-					{/if}
-					{#if !expandable && fileItemControls}
+					{#if fileItemControls}
 						<span class="file-list__controls">
 							{@render fileItemControls(file)}
 						</span>
@@ -110,11 +102,6 @@
 				{#if expandable && expandState.get(file.id ?? index)}
 					<span class="file-list__details">
 						{@render fileItemDetails?.(file)}
-						{#if fileItemControls}
-							<span class="file-list__controls">
-								{@render fileItemControls(file)}
-							</span>
-						{/if}
 					</span>
 				{/if}
 				{#if file.status}

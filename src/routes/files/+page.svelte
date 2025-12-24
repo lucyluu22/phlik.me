@@ -84,7 +84,7 @@
 	<p>Loading files...</p>
 {:else if files.length > 0}
 	<h2>Received Files</h2>
-	<FileList {files} onSelectFile={(file) => saveFile(file as StoredFile)}>
+	<FileList {files}>
 		{#snippet fileItemControls(file)}
 			<Button
 				title="Save File"
@@ -94,6 +94,14 @@
 				<span class="icon icon--save"></span>
 				<span class="sr-only">Save File</span>
 			</Button>
+		{/snippet}
+		{#snippet fileItemDetails(file)}
+			<p>
+				<strong>Sent By</strong>
+				<br />
+				{localClient.getConnection(file.clientId)?.name || `Unknown Client (${file.clientId})`}
+			</p>
+			<p><strong>Sent On</strong><br />{formatDate(file.createdAt!)}</p>
 			<Button
 				title="Delete File"
 				disabled={file.status === STATUS_REQUESTING}
@@ -103,14 +111,6 @@
 				<span class="icon icon--trash"></span>
 				<span class="sr-only">Delete File</span>
 			</Button>
-		{/snippet}
-		{#snippet fileItemDetails(file)}
-			<p>
-				<strong>Sent By</strong>
-				<br />
-				{localClient.getConnection(file.clientId)?.name || `Unknown Client (${file.clientId})`}
-			</p>
-			<p><strong>Sent On</strong><br />{formatDate(file.createdAt!)}</p>
 		{/snippet}
 	</FileList>
 {:else}

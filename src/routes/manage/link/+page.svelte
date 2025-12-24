@@ -56,7 +56,13 @@
 			<h2>Error Generating Link Code</h2>
 		{:else}
 			<h2>Your Link Code</h2>
-			<button type="button" class="link-code" title="Copy" onclick={copyLinkCode}>
+			<button
+				type="button"
+				class="link-code"
+				data-testid="link-code"
+				title="Copy"
+				onclick={copyLinkCode}
+			>
 				{linkCode}
 			</button>
 			<p>

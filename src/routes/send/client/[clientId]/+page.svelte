@@ -215,10 +215,13 @@
 	<Separator />
 	<a href="/" class="button">Cancel</a>
 {:else if clientConnectionError}
-	<p>Connection to client failed. Make sure the receiver has phlick.me open.</p>
+	<p>
+		Client is not responding, make sure the receiver has <strong>phlick.me</strong> open and is connected
+		to the internet.
+	</p>
 	<Button onclick={retrySend}>
 		<span class="icon icon--refresh"></span>
-		Retry
+		Retry Transfer
 	</Button>
 	<Separator />
 	<a href="/" class="button">Cancel</a>

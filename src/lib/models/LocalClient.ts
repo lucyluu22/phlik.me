@@ -53,8 +53,8 @@ export class LocalClient extends EventEmitter<LocalCLientEventMap> {
 	private readonly _getConnectionKey: (publicId: string) => string = (publicId) =>
 		`client.connection:${publicId}`;
 
-	private _subscribeToClientChannel() {
-		this._pubSub.subscribe(this.getPublicId()!, this.getPrivateId()!, (message) =>
+	private async _subscribeToClientChannel() {
+		return this._pubSub.subscribe(this.getPublicId()!, this.getPrivateId()!, (message) =>
 			this._messageHandler.receive(message)
 		);
 	}
@@ -228,7 +228,7 @@ export class LocalClient extends EventEmitter<LocalCLientEventMap> {
 			this._storage.setItem(this._privateIdKey, privateId);
 			this._storage.setItem(this._connectionIdsKey, JSON.stringify([]));
 
-			this._subscribeToClientChannel();
+			await this._subscribeToClientChannel();
 		} else {
 			throw new Error(`Server responded with ${response.status}: ${response.statusText}`);
 		}
@@ -373,6 +373,7 @@ export class LocalClient extends EventEmitter<LocalCLientEventMap> {
 		const connectionIds = this._getConnectionIds().filter((id) => id !== publicId);
 		this._storage.setItem(this._connectionIdsKey, JSON.stringify(connectionIds));
 		this._storage.removeItem(this._getConnectionKey(publicId));
+		this._trustedClients.delete(publicId);
 
 		if (sendDisconnectMessage) {
 			// Notify the client that we have disconnected them, so they can remove us from their connections too.

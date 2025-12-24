@@ -38,16 +38,26 @@ export class AblyPubSub implements PubSub {
 		privateId: string,
 		listener: (message: MessagePacket) => void
 	): Promise<void> {
-		if (!this._ablyClient) {
-			this._ablyClient = this._createAblyClient(privateId);
-		}
+		return new Promise<void>((resolve, reject) => {
+			if (!this._ablyClient) {
+				this._ablyClient = this._createAblyClient(privateId);
+			}
 
-		this._ablyClient.channels.get(`client:${publicId}`).subscribe((message) => {
-			listener({
-				type: message.name!,
-				clientId: message.clientId!,
-				authentication: message.data?.authentication,
-				data: message.data?.messagePacketData
+			this._ablyClient.channels.get(`client:${publicId}`).subscribe((message) => {
+				listener({
+					type: message.name!,
+					clientId: message.clientId!,
+					authentication: message.data?.authentication,
+					data: message.data?.messagePacketData
+				});
+			});
+
+			this._ablyClient.connection.once('failed', (err) => {
+				reject(new Error(`Ably connection failed: ${err.reason}`));
+			});
+
+			this._ablyClient.connection.once('connected', () => {
+				resolve();
 			});
 		});
 	}

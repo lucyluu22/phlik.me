@@ -1,6 +1,11 @@
 <script module>
 	declare const __APP_VERSION__: string;
 	declare const __GIT_REPO_URL__: string;
+	declare global {
+		interface Window {
+			_phlickLocalClient: import('$lib/models/LocalClient').LocalClient;
+		}
+	}
 </script>
 
 <script lang="ts">
@@ -8,7 +13,6 @@
 	import '$lib/styles/icons.css';
 
 	import type { LayoutProps } from './$types';
-	import { dev } from '$app/environment';
 	import { getLocalClient, LocalClientEvents } from '$lib/models/LocalClient';
 	import Toast, { showToast, Context } from '$lib/components/Toast.svelte';
 	import favicon from '$lib/assets/favicon.svg';
@@ -27,8 +31,8 @@
 	});
 
 	onMount(() => {
-		// @ts-expect-error Expose localClient for debugging
-		if (dev) window.localClient = localClient;
+		// Expose localClient for debugging and testing
+		window._phlickLocalClient = localClient;
 	});
 </script>
 

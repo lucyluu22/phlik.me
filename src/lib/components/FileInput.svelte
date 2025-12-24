@@ -9,6 +9,6 @@
 </script>
 
 <input {id} type="file" class="sr-only" bind:files {...props} />
-<label class="button" for={id} {title}>
+<label class="button" for={id} {title} data-testid="file-input-label">
 	{@render children?.()}
 </label>

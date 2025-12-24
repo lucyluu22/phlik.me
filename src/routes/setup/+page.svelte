@@ -31,7 +31,7 @@
 		}
 	}}
 >
-	<Input bind:value={clientName} required autofocus aria-describedby="client-name-help">
+	<Input bind:value={clientName} required aria-describedby="client-name-help">
 		{#snippet label()}
 			<h2>Name This Client</h2>
 		{/snippet}

@@ -1,7 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import { clientManager } from '$lib/server/clientManager';
 
-import type { RequestHandler } from '../$types';
+import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request }) => {
 	const { linkCode } = await request.json();

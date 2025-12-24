@@ -493,11 +493,14 @@ export class FileTransfer extends EventEmitter<FileTransferEventMap> {
 					clientId
 				}))
 			);
+
 			fileIds.forEach((fileId, index) => {
 				const writable = this._fileStorage.writeFileData(fileId);
 				const writer = writable.getWriter();
 				fileWriters.set(files[index].name, writer);
 			});
+
+			let filesCompleted = 0;
 
 			const fileTransferChunkReceived = (
 				chunk: ArrayBuffer,
@@ -520,29 +523,35 @@ export class FileTransfer extends EventEmitter<FileTransferEventMap> {
 
 			const fileTransferComplete = (fileName: string, fromClientId: string) => {
 				if (fromClientId === clientId) {
+					filesCompleted++;
 					const writer = fileWriters.get(fileName);
 					if (writer) {
 						writer.close();
 						fileWriters.delete(fileName);
 					}
 
-					this.off(FileTransferEvents.FILE_RECEIVED_CHUNK, fileTransferChunkReceived);
-					this.off(FileTransferEvents.FILE_TRANSFER_COMPLETED, fileTransferComplete);
-					this.off(FileTransferEvents.FILE_TRANSFER_ERROR, fileTransferError);
+					if (filesCompleted === files.length) {
+						this.off(FileTransferEvents.FILE_RECEIVED_CHUNK, fileTransferChunkReceived);
+						this.off(FileTransferEvents.FILE_TRANSFER_COMPLETED, fileTransferComplete);
+						this.off(FileTransferEvents.FILE_TRANSFER_ERROR, fileTransferError);
+					}
 				}
 			};
 
 			const fileTransferError = (error: Error, fileName: string, fromClientId: string) => {
 				if (fromClientId === clientId) {
+					filesCompleted++;
 					const writer = fileWriters.get(fileName);
 					if (writer) {
 						writer.abort(error);
 						fileWriters.delete(fileName);
 					}
 
-					this.off(FileTransferEvents.FILE_RECEIVED_CHUNK, fileTransferChunkReceived);
-					this.off(FileTransferEvents.FILE_TRANSFER_COMPLETED, fileTransferComplete);
-					this.off(FileTransferEvents.FILE_TRANSFER_ERROR, fileTransferError);
+					if (filesCompleted === files.length) {
+						this.off(FileTransferEvents.FILE_RECEIVED_CHUNK, fileTransferChunkReceived);
+						this.off(FileTransferEvents.FILE_TRANSFER_COMPLETED, fileTransferComplete);
+						this.off(FileTransferEvents.FILE_TRANSFER_ERROR, fileTransferError);
+					}
 				}
 			};
 
@@ -634,7 +643,8 @@ export class FileTransfer extends EventEmitter<FileTransferEventMap> {
 
 	/**
 	 * Create a new session handler for file transfer events.
-	 * Attach to this handler to listen for file transfer events.
+	 * Pages can use this disposable handler to listen for events during a file transfer session
+	 * without needing to manage unsubscribing from the main FileTransfer instance.
 	 * @returns
 	 */
 	createSessionHandler(): EventEmitter<FileTransferEventMap> {
