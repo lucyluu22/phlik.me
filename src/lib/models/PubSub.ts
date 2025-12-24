@@ -1,4 +1,4 @@
-import * as Ably from 'Ably';
+import * as Ably from 'ably';
 import type { MessagePacket } from './MessageHandler';
 
 export interface PubSub {

@@ -1,4 +1,4 @@
-import * as Ably from 'Ably';
+import * as Ably from 'ably';
 import { env } from '$env/dynamic/private';
 
 export const ablyClient = new Ably.Realtime({
