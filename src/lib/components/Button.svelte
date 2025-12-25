@@ -45,6 +45,20 @@
 		pointer-events: none;
 	}
 
+	button:global(.context--warning),
+	:global(.button.context--warning) {
+		border-color: var(--color-warning);
+		color: var(--color-warning);
+	}
+
+	button:global(.context--warning):hover,
+	:global(.button.context--warning):hover,
+	button:global(.context--warning):focus,
+	:global(.button.context--warning):focus {
+		background-color: var(--color-warning);
+		color: var(--color-on-warning);
+	}
+
 	button:global(.context--danger),
 	:global(.button.context--danger) {
 		border-color: var(--color-danger);

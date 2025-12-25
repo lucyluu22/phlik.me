@@ -4,6 +4,7 @@
 	import Menu from '$lib/components/Menu.svelte';
 	import MenuItem from '$lib/components/MenuItem.svelte';
 	import Select from '$lib/components/Select.svelte';
+	import Separator from '$lib/components/Separator.svelte';
 	import { getLocalClient } from '$lib/models/LocalClient';
 	import FileInput from '$lib/components/FileInput.svelte';
 	import { getContext } from './context.svelte';
@@ -51,6 +52,10 @@
 				Connect Your First Client
 			</a>
 		{/if}
+	</MenuItem>
+	<MenuItem>
+		<Separator />
+		<a href="/" class="button">Cancel</a>
 	</MenuItem>
 </Menu>
 

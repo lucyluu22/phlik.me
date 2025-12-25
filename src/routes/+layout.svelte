@@ -14,15 +14,16 @@
 
 	import type { LayoutProps } from './$types';
 	import { getLocalClient, LocalClientEvents } from '$lib/models/LocalClient';
-	import Toast, { showToast, Context } from '$lib/components/Toast.svelte';
-	import favicon from '$lib/assets/favicon.svg';
-	import faviconIco from '$lib/assets/favicon.ico';
-	import faviconPng from '$lib/assets/favicon-96x96.png';
-	import appleTouchIcon from '$lib/assets/apple-touch-icon.png';
-	import logo from '$lib/assets/logo.svg';
+	import Toast, { showToast } from '$lib/components/Toast.svelte';
+	import Button from '$lib/components/Button.svelte';
+	import { Context, ContextClass } from '$lib/styles/Context';
 	import { onMount } from 'svelte';
+	import { pwaInfo } from 'virtual:pwa-info';
+	import { useRegisterSW } from 'virtual:pwa-register/svelte';
 
 	let { children }: LayoutProps = $props();
+	let updateApp = () => {};
+	let hasUpdate = $state(false);
 
 	const localClient = getLocalClient();
 
@@ -31,29 +32,58 @@
 	});
 
 	onMount(() => {
+		const { needRefresh, updateServiceWorker } = useRegisterSW({
+			onRegistered(r) {
+				if (r) {
+					// check for updates every hour
+					setInterval(
+						() => {
+							r.update();
+						},
+						60 * 60 * 1000
+					);
+				}
+			}
+		});
+
+		updateApp = () => updateServiceWorker(true);
+		needRefresh.subscribe((value) => {
+			hasUpdate = value;
+		});
+
 		// Expose localClient for debugging and testing
 		window._phlickLocalClient = localClient;
 	});
 </script>
 
 <svelte:head>
-	<link rel="icon" type="image/png" href={faviconPng} sizes="96x96" />
-	<link rel="icon" type="image/svg+xml" href={favicon} />
-	<link rel="shortcut icon" href={faviconIco} />
-	<link rel="apple-touch-icon" sizes="180x180" href={appleTouchIcon} />
+	<link rel="icon" type="image/png" href="favicon-96x96.png" sizes="96x96" />
+	<link rel="icon" type="image/svg+xml" href="favicon.svg" />
+	<link rel="shortcut icon" href="favicon.ico" />
+	<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
 	<meta name="apple-mobile-web-app-title" content="Phlik.me" />
-	<title>phlik.me</title>
 	<meta name="description" content="A phully anonymous file sharing service." />
+	<meta name="theme-color" content="#030618" />
+	{@html pwaInfo?.webManifest.linkTag}
 </svelte:head>
 
 <Toast />
 <header>
 	<hgroup>
-		<a href="/" title="Phlick Me">
-			<h1 style="--logo: url({logo});">Phlick Me</h1>
+		<a href="/" title="Go to main menu">
+			<h1><span class="sr-only">Phlick Me</span></h1>
 		</a>
-		<p>A Phully Anonymous File Sharing Service</p>
+		<p><strong>A Phully Anonymous File Sharing Service</strong></p>
 	</hgroup>
+	{#if hasUpdate}
+		<div class="update-alert" role="alert">
+			<p class={ContextClass.warning}>New app version available</p>
+			<Button class={ContextClass.warning} onclick={() => updateApp()}>
+				<span class="icon icon--refresh"></span>
+				Update
+			</Button>
+		</div>
+	{/if}
 </header>
 <main>
 	{@render children()}
@@ -69,7 +99,6 @@
 
 <style>
 	header {
-		height: 25vh;
 		display: flex;
 		justify-content: center;
 		align-items: center;
@@ -93,25 +122,28 @@
 
 	header h1 {
 		width: 100%;
-		height: 100%;
+		height: 20vh;
+		min-height: 100px;
 		margin: 0;
 		padding: 0;
 		color: transparent;
-		mask-image: var(--logo);
-		-webkit-mask-image: var(--logo);
+		mask-image: url(logo.svg);
+		-webkit-mask-image: url(logo.svg);
 		mask-size: contain;
 		-webkit-mask-size: contain;
 		mask-repeat: no-repeat;
 		-webkit-mask-repeat: no-repeat;
-		mask-position: center;
-		-webkit-mask-position: center;
+		mask-position: center center;
+		-webkit-mask-position: center center;
 		background: var(--color-on-primary);
 	}
 
-	header p {
-		margin: 0;
-		padding: 0;
-		font-weight: bold;
+	header .update-alert {
+		width: 100%;
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		align-items: center;
 	}
 
 	main {
