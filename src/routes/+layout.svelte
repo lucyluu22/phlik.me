@@ -127,8 +127,8 @@
 		margin: 0;
 		padding: 0;
 		color: transparent;
-		mask-image: url(logo.svg);
-		-webkit-mask-image: url(logo.svg);
+		mask-image: url(/logo.svg);
+		-webkit-mask-image: url(/logo.svg);
 		mask-size: contain;
 		-webkit-mask-size: contain;
 		mask-repeat: no-repeat;
